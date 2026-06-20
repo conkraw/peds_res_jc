@@ -382,7 +382,7 @@ def build_paper_framework_slide(prs, deck):
 def build_month_skill_slide(prs, deck):
     data = deck["month_skill"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, data.get("skill_title", "Month 1 focus skill"))
+    add_title(slide, data.get("skill_title", "Monthly Focus Skill"))
     add_section_label(slide, 0.9, 1.25, 3.6, "Find only five things")
     add_bullets(slide, 0.95, 1.75, 5.3, 2.3, _lines(data.get("reading_questions")), font_size=18, bullet=False)
     add_section_label(slide, 6.8, 1.25, 3.5, "Use this paper as the example")
