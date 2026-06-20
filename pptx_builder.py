@@ -149,7 +149,15 @@ def add_footer(slide, text: str = "Journal Club Builder"):
 
 
 def add_results_table(slide, rows_data: List[Dict[str, Any]], x=0.55, y=1.35, w=12.25, h=3.55):
-    columns = ["Outcome", "88% threshold", "92% threshold", "Difference", "Interpretation"]
+    default_columns = ["Outcome", "88% threshold", "92% threshold", "Difference", "Interpretation"]
+
+    # Use the column order coming from the Streamlit data editor. This allows
+    # Slide 4 table columns to be customized and still export as editable PPT text.
+    columns = list(rows_data[0].keys()) if rows_data else default_columns
+    if not columns:
+        columns = default_columns
+    columns = columns[:8]  # keep the slide readable
+
     cleaned_rows = []
     for row in rows_data or []:
         if any(_safe_text(row.get(col, "")).strip() for col in columns):
@@ -167,7 +175,11 @@ def add_results_table(slide, rows_data: List[Dict[str, Any]], x=0.55, y=1.35, w=
         Inches(h),
     )
     table = shape.table
-    widths = [2.65, 1.55, 1.55, 1.8, 4.7]
+
+    if len(columns) == 5:
+        widths = [2.65, 1.55, 1.55, 1.8, 4.7]
+    else:
+        widths = [w / len(columns)] * len(columns)
     for idx, width in enumerate(widths):
         table.columns[idx].width = Inches(width)
 
@@ -182,7 +194,7 @@ def add_results_table(slide, rows_data: List[Dict[str, Any]], x=0.55, y=1.35, w=
             paragraph.alignment = PP_ALIGN.CENTER
             for run in paragraph.runs:
                 run.font.bold = True
-                run.font.size = Pt(11)
+                run.font.size = Pt(10 if len(columns) > 5 else 11)
                 run.font.color.rgb = COLOR_WHITE
 
     for r, row in enumerate(cleaned_rows, start=1):
@@ -195,9 +207,9 @@ def add_results_table(slide, rows_data: List[Dict[str, Any]], x=0.55, y=1.35, w=
                 cell.fill.solid()
                 cell.fill.fore_color.rgb = COLOR_LIGHT_GRAY
             for paragraph in cell.text_frame.paragraphs:
-                paragraph.alignment = PP_ALIGN.LEFT if c in (0, 4) else PP_ALIGN.CENTER
+                paragraph.alignment = PP_ALIGN.LEFT if c == 0 or c == len(columns) - 1 else PP_ALIGN.CENTER
                 for run in paragraph.runs:
-                    run.font.size = Pt(10.5)
+                    run.font.size = Pt(9.5 if len(columns) > 5 else 10.5)
                     run.font.color.rgb = COLOR_DARK
 
     return shape

@@ -42,6 +42,9 @@ DEFAULT_RESULTS_TABLE: List[Dict[str, str]] = [
 ]
 
 
+DEFAULT_RESULTS_TABLE_COLUMNS = "Outcome, 88% threshold, 92% threshold, Difference, Interpretation"
+
+
 SLIDES: List[Dict[str, Any]] = [
     {
         "id": "title_goal",
@@ -303,11 +306,22 @@ SLIDES: List[Dict[str, Any]] = [
                 "guide": "The table is the recommended default.",
             },
             {
+                "key": "results_table_columns",
+                "label": "Results table columns",
+                "type": "text",
+                "required": False,
+                "max_words": 18,
+                "default": DEFAULT_RESULTS_TABLE_COLUMNS,
+                "show_if": {"visual_type": "Results table"},
+                "guide": "Edit the column names here. Separate columns with commas.",
+            },
+            {
                 "key": "results_table",
                 "label": "Results table",
                 "type": "table",
                 "required": False,
                 "default": DEFAULT_RESULTS_TABLE,
+                "columns_key": "results_table_columns",
                 "max_rows": 5,
                 "show_if": {"visual_type": "Results table"},
                 "guide": "Keep to 4–5 rows. The PowerPoint table stays editable.",
@@ -510,8 +524,8 @@ SLIDES: List[Dict[str, Any]] = [
     },
     {
         "id": "month_skill",
-        "label": "Monthly Focus Skill",
-        "export_title": "Monthly Focus Skill",
+        "label": "Month 1 focus skill",
+        "export_title": "Month 1 focus skill",
         "fields": [
             {
                 "key": "skill_title",

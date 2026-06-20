@@ -14,7 +14,7 @@ from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.1.1"
+PROJECT_VERSION = "0.1.2"
 
 
 # -----------------------------
@@ -66,6 +66,21 @@ def field_is_visible(slide_data: Dict[str, Any], field: Dict[str, Any]) -> bool:
         if slide_data.get(controlling_key) != expected_value:
             return False
     return True
+
+
+def parse_table_columns(raw_columns: Any) -> List[str]:
+    """Convert a comma-separated column field into a clean list of column names."""
+    if isinstance(raw_columns, list):
+        candidates = raw_columns
+    else:
+        candidates = str(raw_columns or "").replace("\n", ",").split(",")
+
+    columns: List[str] = []
+    for col in candidates:
+        cleaned = str(col).strip()
+        if cleaned and cleaned not in columns:
+            columns.append(cleaned)
+    return columns
 
 
 def sync_selected_slide() -> None:
@@ -237,9 +252,26 @@ def render_select_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[s
 
 def render_table_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any]) -> Any:
     key = field["key"]
-    widget_key = f"table__{slide_id}__{key}"
     current_rows = slide_data.get(key, deepcopy(field.get("default", [])))
     df = pd.DataFrame(current_rows)
+
+    # Optional: allow a companion text field to control the table columns.
+    # For Slide 4, this is results_table_columns.
+    columns_key = field.get("columns_key")
+    configured_columns = parse_table_columns(slide_data.get(columns_key, "")) if columns_key else []
+    if not configured_columns:
+        configured_columns = list(df.columns) or list(field.get("columns", []))
+
+    if configured_columns:
+        for col in configured_columns:
+            if col not in df.columns:
+                df[col] = ""
+        df = df[configured_columns]
+
+    # Include the column names in the widget key so Streamlit redraws the table
+    # immediately when the user edits the column list.
+    column_signature = "__".join(configured_columns) if configured_columns else "default"
+    widget_key = f"table__{slide_id}__{key}__{column_signature}"
 
     st.sidebar.caption(field.get("guide", ""))
     edited = st.sidebar.data_editor(
@@ -426,14 +458,12 @@ def main() -> None:
         render_validation_panel(st.session_state.deck)
         st.divider()
         render_downloads(st.session_state.deck)
-
         if selected_slide["id"] == "main_result":
             st.divider()
             st.markdown("### Slide 4 visual")
             slide4 = st.session_state.deck.get("main_result", {})
             st.write(f"Current format: **{slide4.get('visual_type', 'Results table')}**")
             st.caption("Recommended default: Results table. It exports as an editable PowerPoint table.")
-
 
     st.caption(f"Version {PROJECT_VERSION}")
 
