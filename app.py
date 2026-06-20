@@ -434,12 +434,6 @@ def main() -> None:
             st.write(f"Current format: **{slide4.get('visual_type', 'Results table')}**")
             st.caption("Recommended default: Results table. It exports as an editable PowerPoint table.")
 
-    with st.expander("How this app prevents disappearing sidebar values"):
-        st.write(
-            "The visible widgets are not the permanent source of truth. Every slide writes into "
-            "`st.session_state.deck`, so switching between slides keeps the values. Drafts can also "
-            "be downloaded as JSON and reloaded later."
-        )
 
     st.caption(f"Version {PROJECT_VERSION}")
 
