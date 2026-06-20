@@ -68,6 +68,19 @@ def field_is_visible(slide_data: Dict[str, Any], field: Dict[str, Any]) -> bool:
     return True
 
 
+def sync_selected_slide() -> None:
+    """Update the selected slide before the rest of the page renders.
+
+    Streamlit reruns the script after each widget interaction. Using an
+    on_change callback prevents the sidebar radio button from feeling like it
+    needs a second click, especially after editing text/table widgets.
+    """
+    label_to_id = {slide["label"]: slide["id"] for slide in SLIDES}
+    selected_label = st.session_state.get("selected_slide_label")
+    if selected_label in label_to_id:
+        st.session_state.selected_slide_id = label_to_id[selected_label]
+
+
 def validate_field(value: Any, field: Dict[str, Any]) -> List[str]:
     problems: List[str] = []
     label = field.get("label", field.get("key", "Field"))
@@ -375,15 +388,23 @@ def main() -> None:
         st.divider()
 
         label_to_id = {slide["label"]: slide["id"] for slide in SLIDES}
-        current_label = next(
-            slide["label"] for slide in SLIDES if slide["id"] == st.session_state.selected_slide_id
-        )
-        selected_label = st.radio(
+        id_to_label = {slide["id"]: slide["label"] for slide in SLIDES}
+
+        # Keep the displayed radio value and the internal slide id synchronized.
+        # The explicit key + callback prevents occasional "double-click" behavior
+        # when moving between slides after editing fields.
+        if "selected_slide_label" not in st.session_state:
+            st.session_state.selected_slide_label = id_to_label[st.session_state.selected_slide_id]
+        elif st.session_state.selected_slide_label not in label_to_id:
+            st.session_state.selected_slide_label = id_to_label[SLIDES[0]["id"]]
+            st.session_state.selected_slide_id = SLIDES[0]["id"]
+
+        st.radio(
             "Choose slide",
             list(label_to_id.keys()),
-            index=list(label_to_id.keys()).index(current_label),
+            key="selected_slide_label",
+            on_change=sync_selected_slide,
         )
-        st.session_state.selected_slide_id = label_to_id[selected_label]
 
         st.divider()
 
