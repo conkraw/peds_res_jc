@@ -14,7 +14,7 @@ from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.1.0"
+PROJECT_VERSION = "0.1.1"
 
 
 # -----------------------------
@@ -287,8 +287,10 @@ def render_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any
 
 
 def render_slide_preview(slide: Dict[str, Any], slide_data: Dict[str, Any]) -> None:
-    st.subheader(slide["label"])
-    st.markdown(f"### {slide.get('export_title', slide['label'])}")
+    # Show one clean preview heading. The slide label is for navigation/sidebar;
+    # export_title is what appears as the actual slide title.
+    preview_title = slide.get("export_title") or slide["label"]
+    st.subheader(preview_title)
 
     for field in slide["fields"]:
         if not field_is_visible(slide_data, field):
