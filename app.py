@@ -426,11 +426,13 @@ def main() -> None:
         render_validation_panel(st.session_state.deck)
         st.divider()
         render_downloads(st.session_state.deck)
-        st.divider()
-        st.markdown("### Slide 4 visual")
-        slide4 = st.session_state.deck.get("main_result", {})
-        st.write(f"Current format: **{slide4.get('visual_type', 'Results table')}**")
-        st.caption("Recommended default: Results table. It exports as an editable PowerPoint table.")
+
+        if selected_slide["id"] == "main_result":
+            st.divider()
+            st.markdown("### Slide 4 visual")
+            slide4 = st.session_state.deck.get("main_result", {})
+            st.write(f"Current format: **{slide4.get('visual_type', 'Results table')}**")
+            st.caption("Recommended default: Results table. It exports as an editable PowerPoint table.")
 
     with st.expander("How this app prevents disappearing sidebar values"):
         st.write(
