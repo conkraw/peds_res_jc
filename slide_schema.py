@@ -48,7 +48,7 @@ DEFAULT_RESULTS_TABLE_COLUMNS = "Outcome, 88% threshold, 92% threshold, Differen
 SLIDES: List[Dict[str, Any]] = [
     {
         "id": "title_goal",
-        "label": "Title + teaching goal",
+        "label": "",
         "export_title": "",
         "fields": [
             {
