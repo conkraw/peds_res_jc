@@ -49,7 +49,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "title_goal",
         "label": "",
-        "export_title": "",
+        "export_title": "Journal Club Overview",
         "fields": [
             {
                 "key": "session_title",
