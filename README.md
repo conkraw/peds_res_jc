@@ -4,14 +4,14 @@ A Streamlit app for building standardized resident journal club PowerPoints.
 
 The app provides:
 
-- Slide-by-slide sidebar editing
+- Simple sidebar slide navigation with the editable fields in the main workspace
 - Word, line, and table-length limits
 - A standardized PowerPoint export
 - A Slide 4 visual option: results table, big-number card, simple bar chart, or no visual
 - Download/reload of editable JSON drafts
 - An optional facilitator-notes appendix slide
 
-The default content is prefilled with the OxyKids journal club example.
+The default content is prefilled with the OxyKids journal club example. Version 0.1.3 uses a simpler layout: the sidebar is only for slide navigation, while the slide fields appear in the main page.
 
 ## Files
 
@@ -107,8 +107,8 @@ The app exports facilitator notes as an editable appendix slide rather than hidd
 ## Recommended workflow for residents
 
 1. Open the app.
-2. Move through the sidebar slide list from top to bottom.
-3. Keep each field within the displayed limits.
+2. Choose a slide from the simple sidebar list.
+3. Complete the fields in the main workspace and keep each field within the displayed limits.
 4. Use the Slide 4 results table unless there is a strong reason to use a different visual.
 5. Download the PowerPoint.
 6. Download the JSON draft if they want to save their work and return later.

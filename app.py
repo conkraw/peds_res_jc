@@ -14,7 +14,7 @@ from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.1.2"
+PROJECT_VERSION = "0.1.3"
 
 
 # -----------------------------
@@ -58,6 +58,24 @@ def initialize_state() -> None:
         st.session_state.include_facilitator_notes = True
 
 
+def nav_label(slide: Dict[str, Any]) -> str:
+    """Short labels for the sidebar so the main page can carry the instructions."""
+    labels = {
+        "title_goal": "Title",
+        "opening_case": "Opening",
+        "patient_problem": "Slide 1",
+        "pico": "Slide 2",
+        "study_design": "Slide 3",
+        "main_result": "Slide 4",
+        "clinical_bottom_line": "Slide 5",
+        "paper_framework": "PAPER",
+        "month_skill": "Skill",
+        "apply_back": "Apply",
+        "final_bottom_line": "Final",
+    }
+    return labels.get(slide["id"], slide["label"])
+
+
 def field_is_visible(slide_data: Dict[str, Any], field: Dict[str, Any]) -> bool:
     condition = field.get("show_if")
     if not condition:
@@ -90,7 +108,7 @@ def sync_selected_slide() -> None:
     on_change callback prevents the sidebar radio button from feeling like it
     needs a second click, especially after editing text/table widgets.
     """
-    label_to_id = {slide["label"]: slide["id"] for slide in SLIDES}
+    label_to_id = {nav_label(slide): slide["id"] for slide in SLIDES}
     selected_label = st.session_state.get("selected_slide_label")
     if selected_label in label_to_id:
         st.session_state.selected_slide_id = label_to_id[selected_label]
@@ -206,9 +224,9 @@ def render_text_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str
     help_text = field.get("guide")
 
     if field["type"] == "textarea":
-        value = st.sidebar.text_area(label, key=widget_key, help=help_text, height=130)
+        value = st.text_area(label, key=widget_key, help=help_text, height=130)
     else:
-        value = st.sidebar.text_input(label, key=widget_key, help=help_text)
+        value = st.text_input(label, key=widget_key, help=help_text)
 
     slide_data[key] = value
     return value
@@ -219,7 +237,7 @@ def render_number_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[s
     widget_key = f"widget__{slide_id}__{key}"
     default_value = float(slide_data.get(key, field.get("default", 0.0)) or 0.0)
 
-    value = st.sidebar.number_input(
+    value = st.number_input(
         field["label"],
         min_value=float(field.get("min_value", 0.0)),
         value=default_value,
@@ -239,7 +257,7 @@ def render_select_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[s
     widget_key = f"widget__{slide_id}__{key}"
     index = options.index(current) if current in options else 0
 
-    value = st.sidebar.selectbox(
+    value = st.selectbox(
         field["label"],
         options=options,
         index=index,
@@ -273,8 +291,8 @@ def render_table_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[st
     column_signature = "__".join(configured_columns) if configured_columns else "default"
     widget_key = f"table__{slide_id}__{key}__{column_signature}"
 
-    st.sidebar.caption(field.get("guide", ""))
-    edited = st.sidebar.data_editor(
+    st.caption(field.get("guide", ""))
+    edited = st.data_editor(
         df,
         key=widget_key,
         hide_index=True,
@@ -300,7 +318,7 @@ def render_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any
     elif ftype == "table":
         value = render_table_field(slide_id, slide_data, field)
     else:
-        st.sidebar.error(f"Unsupported field type: {ftype}")
+        st.error(f"Unsupported field type: {ftype}")
         return
 
     problems = validate_field(value, field)
@@ -312,10 +330,10 @@ def render_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any
         if "max_lines" in field:
             metric_parts.append(f"{len(nonempty_lines(value))} / {field['max_lines']} lines")
         if metric_parts:
-            st.sidebar.caption(" · ".join(metric_parts))
+            st.caption(" · ".join(metric_parts))
 
     for problem in problems:
-        st.sidebar.warning(problem)
+        st.warning(problem)
 
 
 def render_slide_preview(slide: Dict[str, Any], slide_data: Dict[str, Any]) -> None:
@@ -396,33 +414,15 @@ def main() -> None:
 
     st.title(APP_TITLE)
     st.caption(
-        "Build a standardized resident journal club PowerPoint with word limits, slide-by-slide guidance, "
-        "a Slide 4 results visual, and a downloadable editable draft."
+        "Choose a slide on the left, complete the fields in the main workspace, then export a standardized PowerPoint."
     )
 
     with st.sidebar:
-        st.header("Deck controls")
+        st.header("Slides")
+        st.caption("Pick a slide here. Edit the fields on the main page.")
 
-        uploaded = st.file_uploader("Load a saved draft JSON", type=["json"])
-        if uploaded is not None:
-            if st.button("Load uploaded draft", use_container_width=True):
-                try:
-                    loaded = json.loads(uploaded.getvalue().decode("utf-8"))
-                    st.session_state.deck = normalize_deck(loaded)
-                    clear_widget_state()
-                    st.success("Draft loaded.")
-                except Exception as exc:
-                    st.error(f"Could not load draft: {exc}")
-
-        if st.button("Reset to OxyKids example", use_container_width=True):
-            st.session_state.deck = make_default_deck()
-            clear_widget_state()
-            st.success("Reset complete.")
-
-        st.divider()
-
-        label_to_id = {slide["label"]: slide["id"] for slide in SLIDES}
-        id_to_label = {slide["id"]: slide["label"] for slide in SLIDES}
+        label_to_id = {nav_label(slide): slide["id"] for slide in SLIDES}
+        id_to_label = {slide["id"]: nav_label(slide) for slide in SLIDES}
 
         # Keep the displayed radio value and the internal slide id synchronized.
         # The explicit key + callback prevents occasional "double-click" behavior
@@ -442,28 +442,45 @@ def main() -> None:
 
         st.divider()
 
+        with st.expander("Advanced: drafts/reset", expanded=False):
+            uploaded = st.file_uploader("Load a saved draft JSON", type=["json"])
+            if uploaded is not None:
+                if st.button("Load uploaded draft", use_container_width=True):
+                    try:
+                        loaded = json.loads(uploaded.getvalue().decode("utf-8"))
+                        st.session_state.deck = normalize_deck(loaded)
+                        clear_widget_state()
+                        st.success("Draft loaded.")
+                    except Exception as exc:
+                        st.error(f"Could not load draft: {exc}")
+
+            if st.button("Reset to OxyKids example", use_container_width=True):
+                st.session_state.deck = make_default_deck()
+                clear_widget_state()
+                st.success("Reset complete.")
+
     selected_slide = next(slide for slide in SLIDES if slide["id"] == st.session_state.selected_slide_id)
     selected_slide_data = st.session_state.deck[selected_slide["id"]]
 
-    st.sidebar.header(selected_slide["label"])
-    for field in selected_slide["fields"]:
-        render_field(selected_slide["id"], selected_slide_data, field)
+    editor_col, export_col = st.columns([2.2, 0.9])
 
-    left, right = st.columns([2, 1])
-    with left:
-        render_slide_preview(selected_slide, selected_slide_data)
+    with editor_col:
+        st.markdown(f"## {nav_label(selected_slide)}: {selected_slide.get('export_title') or selected_slide['label']}")
+        st.caption("Fill out the fields below. The sidebar is only for moving between slides.")
 
-    with right:
-        st.markdown("### Export readiness")
+        with st.container(border=True):
+            st.markdown("### Edit this slide")
+            for field in selected_slide["fields"]:
+                render_field(selected_slide["id"], selected_slide_data, field)
+
+        with st.expander("Preview this slide", expanded=True):
+            render_slide_preview(selected_slide, selected_slide_data)
+
+    with export_col:
+        st.markdown("### Export")
         render_validation_panel(st.session_state.deck)
         st.divider()
         render_downloads(st.session_state.deck)
-        if selected_slide["id"] == "main_result":
-            st.divider()
-            st.markdown("### Slide 4 visual")
-            slide4 = st.session_state.deck.get("main_result", {})
-            st.write(f"Current format: **{slide4.get('visual_type', 'Results table')}**")
-            st.caption("Recommended default: Results table. It exports as an editable PowerPoint table.")
 
     st.caption(f"Version {PROJECT_VERSION}")
 
