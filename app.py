@@ -63,15 +63,15 @@ def nav_label(slide: Dict[str, Any]) -> str:
     labels = {
         "title_goal": "Title",
         "opening_case": "Opening",
-        "patient_problem": "Slide 1",
-        "pico": "Slide 2",
-        "study_design": "Slide 3",
-        "main_result": "Slide 4",
-        "clinical_bottom_line": "Slide 5",
+        "patient_problem": "Slide 1: The Patient Problem",
+        "pico": "Slide 2: PICO",
+        "study_design": "Slide 3: Study Design",
+        "main_result": "Slide 4: Main Results",
+        "clinical_bottom_line": "Slide 5: Clinical Bottom Line",
         "paper_framework": "PAPER",
-        "month_skill": "Skill",
-        "apply_back": "Apply",
-        "final_bottom_line": "Final",
+        "month_skill": "Monthly Focus Skill",
+        "apply_back": "Apply Back To Patient",
+        "final_bottom_line": "Final Bottom Line",
     }
     return labels.get(slide["id"], slide["label"])
 
