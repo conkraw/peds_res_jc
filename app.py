@@ -61,8 +61,8 @@ def initialize_state() -> None:
 def nav_label(slide: Dict[str, Any]) -> str:
     """Short labels for the sidebar so the main page can carry the instructions."""
     labels = {
-        "title_goal": "Title",
-        "opening_case": "Opening",
+        "title_goal": "Title: JC Overview",
+        "opening_case": "Opening: The Patient Case",
         "patient_problem": "Slide 1: The Patient Problem",
         "pico": "Slide 2: PICO",
         "study_design": "Slide 3: Study Design",
