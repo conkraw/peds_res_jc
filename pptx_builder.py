@@ -5,6 +5,8 @@ from __future__ import annotations
 from io import BytesIO
 from typing import Any, Dict, Iterable, List
 
+import qrcode
+
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
@@ -252,6 +254,43 @@ def add_simple_bar_chart(slide, title: str, label1: str, value1: float, label2: 
     draw_bar(1, label2, value2)
 
 
+def add_hyperlink_textbox(slide, x: float, y: float, w: float, h: float, text: str, url: str, font_size: int = 15):
+    shape = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
+    tf = shape.text_frame
+    tf.clear()
+    tf.word_wrap = True
+    tf.margin_left = Inches(0.08)
+    tf.margin_right = Inches(0.08)
+    tf.margin_top = Inches(0.08)
+    tf.margin_bottom = Inches(0.08)
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    r = p.add_run()
+    r.text = _safe_text(text)
+    r.font.size = Pt(font_size)
+    r.font.bold = True
+    r.font.color.rgb = COLOR_ACCENT
+    if url:
+        r.hyperlink.address = url
+    return shape
+
+
+def make_qr_image(url: str) -> BytesIO:
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=10,
+        border=2,
+    )
+    qr.add_data(url or "")
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    bio = BytesIO()
+    img.save(bio, format="PNG")
+    bio.seek(0)
+    return bio
+
+
 def build_title_goal_slide(prs, deck):
     data = deck["title_goal"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
@@ -427,6 +466,33 @@ def build_final_bottom_line_slide(prs, deck):
     return slide
 
 
+def build_feedback_slide(prs, deck):
+    data = deck.get("feedback", {})
+    title = data.get("thank_you_title", "Thank you for participating")
+    message = data.get("thank_you_message", "Please complete the brief feedback form.")
+    url = _safe_text(data.get("feedback_url", "")).strip()
+    instruction = data.get("feedback_instruction", "Scan the QR code or use the link to provide feedback.")
+
+    slide = prs.slides.add_slide(prs.slide_layouts[6])
+    add_textbox(slide, 0.8, 0.75, 11.8, 0.7, title, font_size=36, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
+    add_textbox(slide, 1.3, 1.65, 10.7, 0.75, message, font_size=21, align=PP_ALIGN.CENTER)
+
+    qr_card = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE, Inches(4.72), Inches(2.72), Inches(3.9), Inches(3.25))
+    qr_card.fill.solid()
+    qr_card.fill.fore_color.rgb = COLOR_LIGHT_GRAY
+    qr_card.line.color.rgb = COLOR_ACCENT_LIGHT
+
+    if url:
+        qr_stream = make_qr_image(url)
+        slide.shapes.add_picture(qr_stream, Inches(5.25), Inches(3.0), Inches(2.85), Inches(2.85))
+
+    add_textbox(slide, 2.0, 6.1, 9.3, 0.35, instruction, font_size=17, bold=True, align=PP_ALIGN.CENTER)
+    display_url = url if url else "Paste REDCap link in the Feedback slide fields"
+    add_hyperlink_textbox(slide, 1.2, 6.52, 10.9, 0.38, display_url, url, font_size=13)
+    add_footer(slide, "Journal Club feedback")
+    return slide
+
+
 def build_facilitator_notes_slide(prs, deck):
     """Create an appendix-style slide for facilitator notes.
 
@@ -469,6 +535,10 @@ def build_powerpoint(deck: Dict[str, Dict[str, Any]], include_facilitator_notes:
 
     if include_facilitator_notes:
         build_facilitator_notes_slide(prs, deck)
+
+    # Always end with the feedback slide so the last visible slide has the
+    # REDCap link and QR code.
+    build_feedback_slide(prs, deck)
 
     output = BytesIO()
     prs.save(output)

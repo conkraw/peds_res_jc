@@ -1,17 +1,19 @@
 # Journal Club PowerPoint Builder
 
-A Streamlit app for building standardized resident journal club PowerPoints.
+A Streamlit app for building standardized resident journal club PowerPoints and one-page session summaries.
 
 The app provides:
 
 - Simple sidebar slide navigation with the editable fields in the main workspace
 - Word, line, and table-length limits
 - A standardized PowerPoint export
+- A one-page Word summary export
+- A final feedback slide with a REDCap web link and QR code
 - A Slide 4 visual option: results table, big-number card, simple bar chart, or no visual
 - Download/reload of editable JSON drafts
 - An optional facilitator-notes appendix slide
 
-The default content is prefilled with the OxyKids journal club example. Version 0.1.3 uses a simpler layout: the sidebar is only for slide navigation, while the slide fields appear in the main page.
+The default content is prefilled with the OxyKids journal club example. Version 0.2.0 keeps the sidebar simple: it is only for slide navigation, while the slide fields appear in the main page.
 
 ## Files
 
@@ -19,6 +21,7 @@ The default content is prefilled with the OxyKids journal club example. Version 
 journal_club_builder/
 ├── app.py                 # Streamlit app
 ├── pptx_builder.py        # PowerPoint generation functions
+├── docx_builder.py        # One-page Word summary generation functions
 ├── slide_schema.py        # Slide fields, limits, defaults, and helper text
 ├── requirements.txt       # Python dependencies
 ├── README.md              # This file
@@ -70,6 +73,7 @@ Edit `slide_schema.py` to change:
 - Line limits
 - Helper text
 - Slide 4 visual fields
+- Feedback slide text and REDCap link field
 
 Each slide has an `id`, a `label`, and a list of `fields`.
 
@@ -97,6 +101,7 @@ Edit `pptx_builder.py` to change:
 - Table formatting
 - Footer text
 - Visual style for Slide 4
+- Final feedback slide layout and QR code placement
 
 The app currently builds a clean widescreen PowerPoint using `python-pptx`.
 
@@ -112,3 +117,29 @@ The app exports facilitator notes as an editable appendix slide rather than hidd
 4. Use the Slide 4 results table unless there is a strong reason to use a different visual.
 5. Download the PowerPoint.
 6. Download the JSON draft if they want to save their work and return later.
+
+
+## Feedback slide
+
+Use the **Feedback** item in the sidebar to edit:
+
+- Thank-you title
+- Thank-you message
+- REDCap feedback link
+- QR code instruction
+
+The PowerPoint always ends with this feedback slide so learners see both the website link and a QR code.
+
+## One-page Word summary
+
+The **Download 1-page summary** button creates a compact `.docx` file with:
+
+- Session title and article topic
+- Teaching purpose
+- PICO / study question
+- Main result
+- Clinical bottom line
+- Trust/caution points
+- Discussion questions
+- Resident take-home sentence
+- REDCap feedback link

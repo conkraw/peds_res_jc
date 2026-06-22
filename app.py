@@ -10,11 +10,12 @@ import pandas as pd
 import streamlit as st
 
 from pptx_builder import build_powerpoint
+from docx_builder import build_word_summary
 from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.1.3"
+PROJECT_VERSION = "0.2.0"
 
 
 # -----------------------------
@@ -61,17 +62,18 @@ def initialize_state() -> None:
 def nav_label(slide: Dict[str, Any]) -> str:
     """Short labels for the sidebar so the main page can carry the instructions."""
     labels = {
-        "title_goal": "Title: JC Overview",
-        "opening_case": "Opening: The Patient Case",
-        "patient_problem": "Slide 1: The Patient Problem",
-        "pico": "Slide 2: PICO",
-        "study_design": "Slide 3: Study Design",
-        "main_result": "Slide 4: Main Results",
-        "clinical_bottom_line": "Slide 5: Clinical Bottom Line",
+        "title_goal": "Title",
+        "opening_case": "Opening",
+        "patient_problem": "Slide 1",
+        "pico": "Slide 2",
+        "study_design": "Slide 3",
+        "main_result": "Slide 4",
+        "clinical_bottom_line": "Slide 5",
         "paper_framework": "PAPER",
-        "month_skill": "Monthly Focus Skill",
-        "apply_back": "Apply Back To Patient",
-        "final_bottom_line": "Final Bottom Line",
+        "month_skill": "Skill",
+        "apply_back": "Apply",
+        "final_bottom_line": "Final",
+        "feedback": "Feedback",
     }
     return labels.get(slide["id"], slide["label"])
 
@@ -393,6 +395,16 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
         use_container_width=True,
     )
 
+    docx_bytes = build_word_summary(deck)
+    st.download_button(
+        "Download 1-page summary",
+        data=docx_bytes,
+        file_name=f"journal_club_summary_{timestamp}.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+        disabled=bool(problems),
+        use_container_width=True,
+    )
+
     draft_json = json.dumps(deck, indent=2, ensure_ascii=False).encode("utf-8")
     st.download_button(
         "Download editable draft JSON",
@@ -414,7 +426,7 @@ def main() -> None:
 
     st.title(APP_TITLE)
     st.caption(
-        "Choose a slide on the left, complete the fields in the main workspace, then export a standardized PowerPoint."
+        "Choose a slide on the left, complete the fields in the main workspace, then export a standardized PowerPoint and one-page summary."
     )
 
     with st.sidebar:

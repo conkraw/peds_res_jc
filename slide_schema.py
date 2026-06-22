@@ -48,8 +48,8 @@ DEFAULT_RESULTS_TABLE_COLUMNS = "Outcome, 88% threshold, 92% threshold, Differen
 SLIDES: List[Dict[str, Any]] = [
     {
         "id": "title_goal",
-        "label": "",
-        "export_title": "Journal Club Overview",
+        "label": "Title + teaching goal",
+        "export_title": "First Journal Club",
         "fields": [
             {
                 "key": "session_title",
@@ -524,8 +524,8 @@ SLIDES: List[Dict[str, Any]] = [
     },
     {
         "id": "month_skill",
-        "label": "Monthly Focus Skill",
-        "export_title": "Monthly Focus Skill",
+        "label": "Month 1 focus skill",
+        "export_title": "Month 1 focus skill",
         "fields": [
             {
                 "key": "skill_title",
@@ -615,6 +615,50 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 35,
                 "default": "My take-home from this article is that oxygen saturation thresholds can drive hospitalization, and we should think carefully before treating a number instead of the child.",
+            },
+        ],
+    },
+
+    {
+        "id": "feedback",
+        "label": "Feedback slide",
+        "export_title": "Thank you",
+        "fields": [
+            {
+                "key": "thank_you_title",
+                "label": "Thank-you title",
+                "type": "text",
+                "required": True,
+                "max_words": 10,
+                "default": "Thank you for participating",
+                "guide": "Large title on the final PowerPoint slide.",
+            },
+            {
+                "key": "thank_you_message",
+                "label": "Thank-you message",
+                "type": "textarea",
+                "required": True,
+                "max_words": 45,
+                "default": "Please complete the brief REDCap feedback form so we can keep journal club clinically relevant, relaxed, and useful.",
+                "guide": "One short sentence asking for feedback.",
+            },
+            {
+                "key": "feedback_url",
+                "label": "REDCap feedback link",
+                "type": "text",
+                "required": True,
+                "max_chars": 220,
+                "default": "https://redcap.ctsi.psu.edu/surveys/?s=YOURFORM",
+                "guide": "Paste the REDCap survey link here. The PowerPoint will show it as text and as a QR code.",
+            },
+            {
+                "key": "feedback_instruction",
+                "label": "QR code instruction",
+                "type": "text",
+                "required": True,
+                "max_words": 18,
+                "default": "Scan the QR code or use the link to provide feedback.",
+                "guide": "Short instruction shown above the QR code.",
             },
         ],
     },
