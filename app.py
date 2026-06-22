@@ -11,11 +11,17 @@ import streamlit as st
 
 from pptx_builder import build_powerpoint
 from docx_builder import build_word_summary
+from github_storage import (
+    GitHubDraftSaveError,
+    github_backup_is_configured,
+    github_config_status_message,
+    save_draft_to_github,
+)
 from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.2"
+PROJECT_VERSION = "0.2.3"
 
 
 # -----------------------------
@@ -37,12 +43,17 @@ def clear_widget_state() -> None:
             del st.session_state[key]
 
 
-def normalize_deck(deck: Dict[str, Dict[str, Any]]) -> Dict[str, Dict[str, Any]]:
-    """Merge uploaded/old draft data into the current schema."""
+def normalize_deck(deck_or_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]:
+    """Merge uploaded/old draft data into the current schema.
+
+    Supports both older draft JSON files that contain only the deck and newer
+    GitHub backup files that wrap the deck with presenter/session metadata.
+    """
+    deck = deck_or_payload.get("deck", deck_or_payload) if isinstance(deck_or_payload, dict) else {}
     default = make_default_deck()
     for slide in SLIDES:
         sid = slide["id"]
-        if sid in deck and isinstance(deck[sid], dict):
+        if isinstance(deck, dict) and sid in deck and isinstance(deck[sid], dict):
             for field in slide["fields"]:
                 fkey = field["key"]
                 if fkey in deck[sid]:
@@ -82,7 +93,7 @@ def slide_display_title(slide: Dict[str, Any]) -> str:
 
     This intentionally does not use nav_label(), because nav_label() is only
     for the sidebar. Keeping these separate prevents duplicate headings like
-    'Opening Case: Opening Patient Case'.
+    'Opening Case: Opening patient case'.
     """
     return str(slide.get("export_title") or slide.get("label") or "Untitled slide").strip()
 
@@ -382,6 +393,71 @@ def render_validation_panel(deck: Dict[str, Dict[str, Any]]) -> None:
         st.success("All visible fields are within limits.")
 
 
+def default_session_title(deck: Dict[str, Dict[str, Any]]) -> str:
+    title_slide = deck.get("title_goal", {})
+    return str(title_slide.get("session_title") or title_slide.get("article_title") or "Journal Club").strip()
+
+
+def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
+    with st.expander("Backup draft to GitHub", expanded=False):
+        st.caption(
+            "Optional safety net. This saves the editable JSON draft to your configured private GitHub drafts repo."
+        )
+
+        presenter_name = st.text_input(
+            "Presenter name",
+            key="github_presenter_name",
+            placeholder="Jane Smith",
+            help="Used only for the saved JSON filename and metadata.",
+        )
+
+        current_deck_title = default_session_title(deck)
+        previous_deck_title = st.session_state.get("_last_github_deck_title", "")
+        current_saved_title = st.session_state.get("github_session_title", "")
+        if (
+            "github_session_title" not in st.session_state
+            or not str(current_saved_title).strip()
+            or current_saved_title == previous_deck_title
+        ):
+            st.session_state.github_session_title = current_deck_title
+        st.session_state._last_github_deck_title = current_deck_title
+
+        session_title = st.text_input(
+            "Session title for saved filename",
+            key="github_session_title",
+            help="Used for the saved JSON filename. You can keep the default.",
+        )
+
+        if github_backup_is_configured():
+            st.success(github_config_status_message())
+        else:
+            st.info(github_config_status_message())
+            st.caption("Add Streamlit secrets first. See README.md for setup instructions.")
+
+        if st.button("Save draft to GitHub", use_container_width=True):
+            if not presenter_name.strip():
+                st.error("Please enter the presenter name before saving.")
+                return
+            if not session_title.strip():
+                st.error("Please enter the session title before saving.")
+                return
+
+            try:
+                result = save_draft_to_github(
+                    deck=deck,
+                    presenter_name=presenter_name,
+                    session_title=session_title,
+                    app_version=PROJECT_VERSION,
+                )
+                st.success(f"Draft saved to GitHub: {result.path}")
+                if result.html_url:
+                    st.caption("You can retrieve it from the drafts repo later and upload it with Load a saved draft JSON.")
+            except GitHubDraftSaveError as exc:
+                st.error(str(exc))
+            except Exception as exc:
+                st.error(f"Unexpected GitHub save error: {exc}")
+
+
 def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     problems = validate_deck(deck)
     timestamp = datetime.now().strftime("%Y%m%d")
@@ -420,6 +496,9 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
         mime="application/json",
         use_container_width=True,
     )
+
+    st.divider()
+    render_github_backup(deck)
 
 
 # -----------------------------
