@@ -12,16 +12,19 @@ import streamlit as st
 from pptx_builder import build_powerpoint
 from docx_builder import build_word_summary
 from github_storage import (
+    GitHubDraftLoadError,
     GitHubDraftSaveError,
     github_backup_is_configured,
     github_config_status_message,
+    list_drafts_from_github,
+    load_draft_from_github,
     save_draft_to_github,
 )
 from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.3"
+PROJECT_VERSION = "0.2.4"
 
 
 # -----------------------------
@@ -398,6 +401,29 @@ def default_session_title(deck: Dict[str, Dict[str, Any]]) -> str:
     return str(title_slide.get("session_title") or title_slide.get("article_title") or "Journal Club").strip()
 
 
+def friendly_draft_label(filename: str) -> str:
+    """Turn 2026-06-22_jane-smith_oxykids-trial.json into a readable option."""
+    stem = str(filename or "").removesuffix(".json")
+    parts = stem.split("_", 2)
+    if len(parts) == 3:
+        saved_date, presenter_slug, title_slug = parts
+        presenter = presenter_slug.replace("-", " ").title()
+        title = title_slug.replace("-", " ").title()
+        return f"{saved_date} — {title} ({presenter})"
+    return filename
+
+
+def apply_loaded_payload_to_session(loaded: Dict[str, Any]) -> None:
+    """Load a draft payload into the active app session and refresh widgets.
+
+    Do not directly assign Streamlit widget keys here. This function can be
+    called after widgets are already rendered in the same run, and Streamlit
+    disallows changing widget-backed session_state keys after instantiation.
+    """
+    st.session_state.deck = normalize_deck(loaded)
+    clear_widget_state()
+
+
 def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
     with st.expander("Backup draft to GitHub", expanded=False):
         st.caption(
@@ -458,6 +484,69 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                 st.error(f"Unexpected GitHub save error: {exc}")
 
 
+def render_github_recovery() -> None:
+    with st.expander("Reload draft from GitHub", expanded=False):
+        st.caption(
+            "Find a saved JSON draft in the private GitHub drafts repo and load it back into the app."
+        )
+
+        if github_backup_is_configured():
+            st.success(github_config_status_message())
+        else:
+            st.info(github_config_status_message())
+            st.caption("Add Streamlit secrets first. See README.md for setup instructions.")
+
+        recover_name = st.text_input(
+            "Presenter name to search",
+            key="github_recover_presenter_name",
+            placeholder="Jane Smith",
+            help="Searches filenames saved with this presenter name.",
+        )
+
+        if st.button("Find saved drafts", use_container_width=True):
+            if not recover_name.strip():
+                st.error("Please enter a presenter name to search.")
+            else:
+                try:
+                    drafts = list_drafts_from_github(recover_name)
+                    st.session_state.github_draft_results = drafts
+                    if drafts:
+                        st.success(f"Found {len(drafts)} saved draft(s).")
+                    else:
+                        st.info("No saved drafts found for that presenter name.")
+                except GitHubDraftLoadError as exc:
+                    st.error(str(exc))
+                except Exception as exc:
+                    st.error(f"Unexpected GitHub load error: {exc}")
+
+        drafts = st.session_state.get("github_draft_results", [])
+        if drafts:
+            label_to_path = {friendly_draft_label(d["name"]): d["path"] for d in drafts}
+            option_labels = list(label_to_path.keys())
+            if st.session_state.get("selected_github_draft_label") not in label_to_path:
+                st.session_state.selected_github_draft_label = option_labels[0]
+
+            selected_label = st.selectbox(
+                "Choose a saved draft",
+                option_labels,
+                key="selected_github_draft_label",
+            )
+
+            selected_path = label_to_path[selected_label]
+            st.caption(f"GitHub path: {selected_path}")
+
+            if st.button("Load selected draft", use_container_width=True):
+                try:
+                    loaded = load_draft_from_github(selected_path)
+                    apply_loaded_payload_to_session(loaded)
+                    st.success(f"Loaded draft: {selected_label}")
+                    st.rerun()
+                except GitHubDraftLoadError as exc:
+                    st.error(str(exc))
+                except Exception as exc:
+                    st.error(f"Unexpected GitHub load error: {exc}")
+
+
 def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     problems = validate_deck(deck)
     timestamp = datetime.now().strftime("%Y%m%d")
@@ -499,6 +588,7 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
 
     st.divider()
     render_github_backup(deck)
+    render_github_recovery()
 
 
 # -----------------------------
