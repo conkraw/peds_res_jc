@@ -82,7 +82,7 @@ def slide_display_title(slide: Dict[str, Any]) -> str:
 
     This intentionally does not use nav_label(), because nav_label() is only
     for the sidebar. Keeping these separate prevents duplicate headings like
-    'Opening Case: Opening patient case'.
+    'Opening Case: Opening Patient Case'.
     """
     return str(slide.get("export_title") or slide.get("label") or "Untitled slide").strip()
 
