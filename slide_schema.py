@@ -93,7 +93,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "opening_case",
         "label": "Opening case",
-        "export_title": "Opening patient case",
+        "export_title": "Opening Patient Case",
         "fields": [
             {
                 "key": "case_stem",
@@ -137,7 +137,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "patient_problem",
         "label": "Slide 1: Patient problem",
-        "export_title": "The patient problem",
+        "export_title": "The Patient Problem",
         "fields": [
             {
                 "key": "headline",
@@ -181,7 +181,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "pico",
         "label": "Slide 2: Study question / PICO",
-        "export_title": "The study question",
+        "export_title": "The Study Question",
         "fields": [
             {
                 "key": "patient",
@@ -236,7 +236,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "study_design",
         "label": "Slide 3: What they did",
-        "export_title": "What they did",
+        "export_title": "What They Did",
         "fields": [
             {
                 "key": "design",
@@ -286,7 +286,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "main_result",
         "label": "Slide 4: What they found",
-        "export_title": "What they found",
+        "export_title": "What They Found",
         "fields": [
             {
                 "key": "main_result",
@@ -429,7 +429,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "clinical_bottom_line",
         "label": "Slide 5: What should we do?",
-        "export_title": "What should we do?",
+        "export_title": "What Should We Do?",
         "fields": [
             {
                 "key": "bottom_line",
@@ -478,7 +478,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "paper_framework",
         "label": "PAPER framework discussion",
-        "export_title": "PAPER framework discussion",
+        "export_title": "PAPER Framework Discussion",
         "fields": [
             {
                 "key": "patient_problem_answer",
@@ -525,7 +525,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "month_skill",
         "label": "Month 1 focus skill",
-        "export_title": "Month 1 focus skill",
+        "export_title": "Monthly Focus Skill",
         "fields": [
             {
                 "key": "skill_title",
@@ -566,7 +566,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "apply_back",
         "label": "Apply back to the patient",
-        "export_title": "Apply back to the patient",
+        "export_title": "Apply Back To The Patient",
         "fields": [
             {
                 "key": "return_question",
