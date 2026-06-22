@@ -336,8 +336,31 @@ def render_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any
     for problem in problems:
         st.warning(problem)
 
-
 def render_slide_preview(slide: Dict[str, Any], slide_data: Dict[str, Any]) -> None:
+    preview_title = slide.get("export_title", "").strip()
+    if preview_title:
+        st.subheader(preview_title)
+
+    for field in slide["fields"]:
+        if not field_is_visible(slide_data, field):
+            continue
+
+        value = slide_data.get(field["key"], "")
+
+        # Avoid duplicate title like "Opening Case: Opening patient case"
+        if str(value).strip() == preview_title:
+            continue
+
+        if field["type"] == "table":
+            st.markdown(f"**{field['label']}**")
+            st.dataframe(pd.DataFrame(value), hide_index=True, use_container_width=True)
+        elif field["type"] == "select":
+            st.caption(f"{field['label']}: {value}")
+        else:
+            st.markdown(f"**{field['label']}**")
+            st.write(value if str(value).strip() else "—")
+            
+def render_slide_preview1(slide: Dict[str, Any], slide_data: Dict[str, Any]) -> None:
     # Show one clean preview heading. The slide label is for navigation/sidebar;
     # export_title is what appears as the actual slide title.
     preview_title = slide.get("export_title") or slide["label"]
