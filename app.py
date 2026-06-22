@@ -15,7 +15,7 @@ from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.1"
+PROJECT_VERSION = "0.2.2"
 
 
 # -----------------------------
@@ -60,7 +60,7 @@ def initialize_state() -> None:
 
 
 def nav_label(slide: Dict[str, Any]) -> str:
-    """Short labels for the sidebar so the main page can carry the instructions."""
+    """Short, user-friendly labels for the sidebar only."""
     labels = {
         "title_goal": "Title",
         "opening_case": "Opening Case",
@@ -75,6 +75,16 @@ def nav_label(slide: Dict[str, Any]) -> str:
         "final_bottom_line": "Final Bottom Line",
     }
     return labels.get(slide["id"], slide["label"])
+
+
+def slide_display_title(slide: Dict[str, Any]) -> str:
+    """Actual slide title shown in the main workspace and preview.
+
+    This intentionally does not use nav_label(), because nav_label() is only
+    for the sidebar. Keeping these separate prevents duplicate headings like
+    'Opening Case: Opening patient case'.
+    """
+    return str(slide.get("export_title") or slide.get("label") or "Untitled slide").strip()
 
 
 def field_is_visible(slide_data: Dict[str, Any], field: Dict[str, Any]) -> bool:
@@ -336,35 +346,10 @@ def render_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any
     for problem in problems:
         st.warning(problem)
 
+
 def render_slide_preview(slide: Dict[str, Any], slide_data: Dict[str, Any]) -> None:
-    preview_title = slide.get("export_title", "").strip()
-    if preview_title:
-        st.subheader(preview_title)
-
-    for field in slide["fields"]:
-        if not field_is_visible(slide_data, field):
-            continue
-
-        value = slide_data.get(field["key"], "")
-
-        # Avoid duplicate title like "Opening Case: Opening patient case"
-        if str(value).strip() == preview_title:
-            continue
-
-        if field["type"] == "table":
-            st.markdown(f"**{field['label']}**")
-            st.dataframe(pd.DataFrame(value), hide_index=True, use_container_width=True)
-        elif field["type"] == "select":
-            st.caption(f"{field['label']}: {value}")
-        else:
-            st.markdown(f"**{field['label']}**")
-            st.write(value if str(value).strip() else "—")
-            
-def render_slide_preview1(slide: Dict[str, Any], slide_data: Dict[str, Any]) -> None:
-    # Show one clean preview heading. The slide label is for navigation/sidebar;
-    # export_title is what appears as the actual slide title.
-    preview_title = slide.get("export_title") or slide["label"]
-    st.subheader(preview_title)
+    preview_title = slide_display_title(slide)
+    st.caption(f"PowerPoint slide title: {preview_title}")
 
     for field in slide["fields"]:
         if not field_is_visible(slide_data, field):
@@ -499,7 +484,7 @@ def main() -> None:
     editor_col, export_col = st.columns([2.2, 0.9])
 
     with editor_col:
-        st.markdown(f"## {nav_label(selected_slide)}: {selected_slide.get('export_title') or selected_slide['label']}")
+        st.markdown(f"## {slide_display_title(selected_slide)}")
         st.caption("Fill out the fields below. The sidebar is only for moving between slides.")
 
         with st.container(border=True):

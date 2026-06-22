@@ -13,7 +13,7 @@ The app provides:
 - Download/reload of editable JSON drafts
 - An optional facilitator-notes appendix slide
 
-The default content is prefilled with the OxyKids journal club example. Version 0.2.1 keeps the sidebar simple: it is only for slide navigation, while the slide fields appear in the main page.
+The default content is prefilled with the OxyKids journal club example. Version 0.2.2 keeps the sidebar as navigation only and separates sidebar labels from actual slide titles, so headings do not duplicate.
 
 ## Files
 
@@ -119,14 +119,14 @@ The app exports facilitator notes as an editable appendix slide rather than hidd
 6. Download the JSON draft if they want to save their work and return later.
 
 
-## Feedback links
+## Feedback slide
 
-Feedback links are intentionally not editable in the Streamlit interface. The exports always use these fixed links:
+The feedback slide is added automatically at the end of the PowerPoint. Residents do not edit it in Streamlit.
 
-- Website link shown in PowerPoint and Word: `https://redcap.link/peds_res_jc_feedback`
-- QR code destination: `https://redcap.ctsi.psu.edu/surveys/?s=T9P4FPRYMJ3XL478`
+The PowerPoint and Word summary always use:
 
-To change them later, edit `feedback_config.py`.
+- QR code URL: `https://redcap.ctsi.psu.edu/surveys/?s=T9P4FPRYMJ3XL478`
+- Display website link: `https://redcap.link/peds_res_jc_feedback`
 
 ## One-page Word summary
 
@@ -140,4 +140,3 @@ The **Download 1-page summary** button creates a compact `.docx` file with:
 - Trust/caution points
 - Discussion questions
 - Resident take-home sentence
-- Fixed feedback website link and QR code
