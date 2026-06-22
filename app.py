@@ -63,16 +63,16 @@ def nav_label(slide: Dict[str, Any]) -> str:
     """Short labels for the sidebar so the main page can carry the instructions."""
     labels = {
         "title_goal": "Title",
-        "opening_case": "Opening",
-        "patient_problem": "Slide 1",
-        "pico": "Slide 2",
-        "study_design": "Slide 3",
-        "main_result": "Slide 4",
-        "clinical_bottom_line": "Slide 5",
-        "paper_framework": "PAPER",
-        "month_skill": "Skill",
-        "apply_back": "Apply",
-        "final_bottom_line": "Final",
+        "opening_case": "Opening Case",
+        "patient_problem": "Slide 1: Patient Problem",
+        "pico": "Slide 2: PICO",
+        "study_design": "Slide 3: Study Design",
+        "main_result": "Slide 4: Main Result",
+        "clinical_bottom_line": "Slide 5: Clinical Bottom Line",
+        "paper_framework": "PAPER Framework",
+        "month_skill": "Monthly Skill",
+        "apply_back": "Apply Back to Patient",
+        "final_bottom_line": "Final Bottom Line",
     }
     return labels.get(slide["id"], slide["label"])
 
