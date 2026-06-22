@@ -14,6 +14,13 @@ from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
 from pptx.util import Inches, Pt
 
 from slide_schema import SLIDES
+from feedback_config import (
+    FEEDBACK_INSTRUCTION,
+    REDCAP_DISPLAY_URL,
+    REDCAP_QR_URL,
+    THANK_YOU_MESSAGE,
+    THANK_YOU_TITLE,
+)
 
 # Simple, conservative styling. Change these values if you want a Penn State-like theme.
 COLOR_DARK = RGBColor(35, 35, 35)
@@ -467,28 +474,26 @@ def build_final_bottom_line_slide(prs, deck):
 
 
 def build_feedback_slide(prs, deck):
-    data = deck.get("feedback", {})
-    title = data.get("thank_you_title", "Thank you for participating")
-    message = data.get("thank_you_message", "Please complete the brief feedback form.")
-    url = _safe_text(data.get("feedback_url", "")).strip()
-    instruction = data.get("feedback_instruction", "Scan the QR code or use the link to provide feedback.")
+    """Final fixed feedback slide.
 
+    This slide is not editable in the Streamlit app. The displayed website link
+    and QR code destination are intentionally fixed for the pediatric residency
+    journal club feedback tool.
+    """
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_textbox(slide, 0.8, 0.75, 11.8, 0.7, title, font_size=36, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
-    add_textbox(slide, 1.3, 1.65, 10.7, 0.75, message, font_size=21, align=PP_ALIGN.CENTER)
+    add_textbox(slide, 0.8, 0.75, 11.8, 0.7, THANK_YOU_TITLE, font_size=36, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
+    add_textbox(slide, 1.3, 1.65, 10.7, 0.75, THANK_YOU_MESSAGE, font_size=21, align=PP_ALIGN.CENTER)
 
     qr_card = slide.shapes.add_shape(MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE, Inches(4.72), Inches(2.72), Inches(3.9), Inches(3.25))
     qr_card.fill.solid()
     qr_card.fill.fore_color.rgb = COLOR_LIGHT_GRAY
     qr_card.line.color.rgb = COLOR_ACCENT_LIGHT
 
-    if url:
-        qr_stream = make_qr_image(url)
-        slide.shapes.add_picture(qr_stream, Inches(5.25), Inches(3.0), Inches(2.85), Inches(2.85))
+    qr_stream = make_qr_image(REDCAP_QR_URL)
+    slide.shapes.add_picture(qr_stream, Inches(5.25), Inches(3.0), Inches(2.85), Inches(2.85))
 
-    add_textbox(slide, 2.0, 6.1, 9.3, 0.35, instruction, font_size=17, bold=True, align=PP_ALIGN.CENTER)
-    display_url = url if url else "Paste REDCap link in the Feedback slide fields"
-    add_hyperlink_textbox(slide, 1.2, 6.52, 10.9, 0.38, display_url, url, font_size=13)
+    add_textbox(slide, 2.0, 6.1, 9.3, 0.35, FEEDBACK_INSTRUCTION, font_size=17, bold=True, align=PP_ALIGN.CENTER)
+    add_hyperlink_textbox(slide, 1.2, 6.52, 10.9, 0.38, REDCAP_DISPLAY_URL, REDCAP_DISPLAY_URL, font_size=13)
     add_footer(slide, "Journal Club feedback")
     return slide
 

@@ -15,7 +15,7 @@ from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.0"
+PROJECT_VERSION = "0.2.1"
 
 
 # -----------------------------
@@ -73,7 +73,6 @@ def nav_label(slide: Dict[str, Any]) -> str:
         "month_skill": "Skill",
         "apply_back": "Apply",
         "final_bottom_line": "Final",
-        "feedback": "Feedback",
     }
     return labels.get(slide["id"], slide["label"])
 
@@ -426,7 +425,7 @@ def main() -> None:
 
     st.title(APP_TITLE)
     st.caption(
-        "Choose a slide on the left, complete the fields in the main workspace, then export a standardized PowerPoint and one-page summary."
+        "Choose a slide on the left, complete the fields in the main workspace, then export a standardized PowerPoint and one-page summary. Feedback links are added automatically."
     )
 
     with st.sidebar:

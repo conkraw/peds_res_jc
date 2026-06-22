@@ -9,6 +9,9 @@ from docx import Document
 from docx.enum.section import WD_ORIENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.shared import Inches, Pt, RGBColor
+import qrcode
+
+from feedback_config import REDCAP_DISPLAY_URL, REDCAP_QR_URL
 
 
 def _safe_text(value: Any) -> str:
@@ -78,6 +81,43 @@ def _add_compact_table(doc: Document, rows: List[tuple[str, str]]) -> None:
                         run.bold = True
 
 
+def _make_qr_image(url: str) -> BytesIO:
+    qr = qrcode.QRCode(
+        version=None,
+        error_correction=qrcode.constants.ERROR_CORRECT_M,
+        box_size=8,
+        border=2,
+    )
+    qr.add_data(url)
+    qr.make(fit=True)
+    img = qr.make_image(fill_color="black", back_color="white")
+    bio = BytesIO()
+    img.save(bio, format="PNG")
+    bio.seek(0)
+    return bio
+
+
+def _add_feedback_block(doc: Document) -> None:
+    """Add fixed feedback link and QR code to the one-page summary."""
+    p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(2)
+    p.paragraph_format.space_after = Pt(1)
+    run = p.add_run("Feedback: ")
+    run.bold = True
+    run.font.size = Pt(8.5)
+    run.font.color.rgb = RGBColor(30, 80, 130)
+    link = p.add_run(REDCAP_DISPLAY_URL)
+    link.font.size = Pt(8.5)
+    link.font.color.rgb = RGBColor(30, 80, 130)
+
+    p2 = doc.add_paragraph()
+    p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
+    p2.paragraph_format.space_before = Pt(0)
+    p2.paragraph_format.space_after = Pt(0)
+    run = p2.add_run()
+    run.add_picture(_make_qr_image(REDCAP_QR_URL), width=Inches(0.72))
+
+
 def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     """Build a compact one-page DOCX summary for session handout/records."""
     doc = Document()
@@ -100,7 +140,6 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     result = deck.get("main_result", {})
     bottom = deck.get("clinical_bottom_line", {})
     final = deck.get("final_bottom_line", {})
-    feedback = deck.get("feedback", {})
 
     p = doc.add_paragraph()
     p.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -157,10 +196,7 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     _add_heading(doc, "Resident take-home")
     _add_small_text(doc, _safe_text(final.get("resident_take_home", "")))
 
-    url = _safe_text(feedback.get("feedback_url", ""))
-    if url:
-        _add_heading(doc, "Feedback")
-        _add_small_text(doc, url, "REDCap")
+    _add_feedback_block(doc)
 
     output = BytesIO()
     doc.save(output)

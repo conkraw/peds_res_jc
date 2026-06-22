@@ -7,13 +7,13 @@ The app provides:
 - Simple sidebar slide navigation with the editable fields in the main workspace
 - Word, line, and table-length limits
 - A standardized PowerPoint export
-- A one-page Word summary export
-- A final feedback slide with a REDCap web link and QR code
+- A one-page Word summary export with the fixed feedback website link and QR code
+- A final feedback slide with a fixed REDCap website link and QR code
 - A Slide 4 visual option: results table, big-number card, simple bar chart, or no visual
 - Download/reload of editable JSON drafts
 - An optional facilitator-notes appendix slide
 
-The default content is prefilled with the OxyKids journal club example. Version 0.2.0 keeps the sidebar simple: it is only for slide navigation, while the slide fields appear in the main page.
+The default content is prefilled with the OxyKids journal club example. Version 0.2.1 keeps the sidebar simple: it is only for slide navigation, while the slide fields appear in the main page.
 
 ## Files
 
@@ -22,6 +22,7 @@ journal_club_builder/
 ├── app.py                 # Streamlit app
 ├── pptx_builder.py        # PowerPoint generation functions
 ├── docx_builder.py        # One-page Word summary generation functions
+├── feedback_config.py     # Fixed REDCap feedback URLs used in exports
 ├── slide_schema.py        # Slide fields, limits, defaults, and helper text
 ├── requirements.txt       # Python dependencies
 ├── README.md              # This file
@@ -73,7 +74,6 @@ Edit `slide_schema.py` to change:
 - Line limits
 - Helper text
 - Slide 4 visual fields
-- Feedback slide text and REDCap link field
 
 Each slide has an `id`, a `label`, and a list of `fields`.
 
@@ -119,16 +119,14 @@ The app exports facilitator notes as an editable appendix slide rather than hidd
 6. Download the JSON draft if they want to save their work and return later.
 
 
-## Feedback slide
+## Feedback links
 
-Use the **Feedback** item in the sidebar to edit:
+Feedback links are intentionally not editable in the Streamlit interface. The exports always use these fixed links:
 
-- Thank-you title
-- Thank-you message
-- REDCap feedback link
-- QR code instruction
+- Website link shown in PowerPoint and Word: `https://redcap.link/peds_res_jc_feedback`
+- QR code destination: `https://redcap.ctsi.psu.edu/surveys/?s=T9P4FPRYMJ3XL478`
 
-The PowerPoint always ends with this feedback slide so learners see both the website link and a QR code.
+To change them later, edit `feedback_config.py`.
 
 ## One-page Word summary
 
@@ -142,4 +140,4 @@ The **Download 1-page summary** button creates a compact `.docx` file with:
 - Trust/caution points
 - Discussion questions
 - Resident take-home sentence
-- REDCap feedback link
+- Fixed feedback website link and QR code

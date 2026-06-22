@@ -618,50 +618,6 @@ SLIDES: List[Dict[str, Any]] = [
             },
         ],
     },
-
-    {
-        "id": "feedback",
-        "label": "Feedback slide",
-        "export_title": "Thank you",
-        "fields": [
-            {
-                "key": "thank_you_title",
-                "label": "Thank-you title",
-                "type": "text",
-                "required": True,
-                "max_words": 10,
-                "default": "Thank you for participating",
-                "guide": "Large title on the final PowerPoint slide.",
-            },
-            {
-                "key": "thank_you_message",
-                "label": "Thank-you message",
-                "type": "textarea",
-                "required": True,
-                "max_words": 45,
-                "default": "Please complete the brief REDCap feedback form so we can keep journal club clinically relevant, relaxed, and useful.",
-                "guide": "One short sentence asking for feedback.",
-            },
-            {
-                "key": "feedback_url",
-                "label": "REDCap feedback link",
-                "type": "text",
-                "required": True,
-                "max_chars": 220,
-                "default": "https://redcap.ctsi.psu.edu/surveys/?s=YOURFORM",
-                "guide": "Paste the REDCap survey link here. The PowerPoint will show it as text and as a QR code.",
-            },
-            {
-                "key": "feedback_instruction",
-                "label": "QR code instruction",
-                "type": "text",
-                "required": True,
-                "max_words": 18,
-                "default": "Scan the QR code or use the link to provide feedback.",
-                "guide": "Short instruction shown above the QR code.",
-            },
-        ],
-    },
 ]
 
 
