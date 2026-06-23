@@ -631,7 +631,7 @@ def main() -> None:
         st.divider()
 
         with st.expander("Advanced: drafts/reset", expanded=False):
-            uploaded = st.file_uploader("Load a saved draft JSON", type=["json"])
+            uploaded = st.file_uploader("Load a saved draft (JSON file type)", type=["json"])
             if uploaded is not None:
                 if st.button("Load uploaded draft", use_container_width=True):
                     try:
