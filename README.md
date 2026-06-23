@@ -203,3 +203,8 @@ The **Download 1-page summary** button creates a compact `.docx` file with:
 - Trust/caution points
 - Discussion questions
 - Resident take-home sentence
+
+
+## Version 0.2.5 note
+
+Slide 4 now uses a stable row-by-row table editor instead of `st.data_editor`. This avoids the confusing behavior where a table cell sometimes had to be deleted or typed twice before the change appeared to stick. Users can still edit the table columns, add rows, remove rows, and export the table to PowerPoint.

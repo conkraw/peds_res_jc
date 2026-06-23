@@ -24,7 +24,7 @@ from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.4"
+PROJECT_VERSION = "0.2.5"
 
 
 # -----------------------------
@@ -42,7 +42,7 @@ def nonempty_lines(text: Any) -> List[str]:
 
 def clear_widget_state() -> None:
     for key in list(st.session_state.keys()):
-        if key.startswith("widget__") or key.startswith("table__"):
+        if key.startswith(("widget__", "table__", "cell__")):
             del st.session_state[key]
 
 
@@ -293,40 +293,138 @@ def render_select_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[s
     return value
 
 
-def render_table_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any]) -> Any:
-    key = field["key"]
-    current_rows = slide_data.get(key, deepcopy(field.get("default", [])))
-    df = pd.DataFrame(current_rows)
+def slug_for_widget(value: Any) -> str:
+    """Create a stable widget-key fragment from a table column name."""
+    slug = re.sub(r"[^a-zA-Z0-9]+", "_", str(value or "").strip()).strip("_")
+    return slug or "column"
 
-    # Optional: allow a companion text field to control the table columns.
-    # For Slide 4, this is results_table_columns.
+
+def clear_table_cell_state(slide_id: str, table_key: str) -> None:
+    """Clear only the widget keys that belong to one manually edited table."""
+    prefix = f"cell__{slide_id}__{table_key}__"
+    for session_key in list(st.session_state.keys()):
+        if session_key.startswith(prefix):
+            del st.session_state[session_key]
+
+
+def normalize_table_rows(rows: Any, columns: List[str]) -> List[Dict[str, str]]:
+    """Return table rows with exactly the selected columns and string values.
+
+    This keeps old draft JSON files compatible even when the user renames or
+    removes columns in the app. If a user renames a column, values are carried
+    over by column position when an exact column-name match is not available.
+    """
+    if not isinstance(rows, list):
+        rows = []
+
+    normalized: List[Dict[str, str]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+
+        old_columns = list(row.keys())
+        normalized_row: Dict[str, str] = {}
+        for col_index, col in enumerate(columns):
+            if col in row:
+                value = row.get(col, "")
+            elif col_index < len(old_columns):
+                value = row.get(old_columns[col_index], "")
+            else:
+                value = ""
+            normalized_row[col] = str(value or "")
+
+        normalized.append(normalized_row)
+    return normalized
+
+
+def render_table_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any]) -> Any:
+    """Render a stable, beginner-friendly table editor.
+
+    Earlier versions used st.data_editor. That looks elegant, but with Streamlit
+    reruns it can feel like a cell needs to be deleted/typed twice before the
+    change sticks. For this app, individual text inputs are more reliable and
+    easier for non-technical users.
+    """
+    key = field["key"]
+
+    current_rows = deepcopy(slide_data.get(key, field.get("default", [])))
+    current_df = pd.DataFrame(current_rows)
+
     columns_key = field.get("columns_key")
     configured_columns = parse_table_columns(slide_data.get(columns_key, "")) if columns_key else []
     if not configured_columns:
-        configured_columns = list(df.columns) or list(field.get("columns", []))
+        configured_columns = list(current_df.columns) or list(field.get("columns", []))
 
-    if configured_columns:
-        for col in configured_columns:
-            if col not in df.columns:
-                df[col] = ""
-        df = df[configured_columns]
+    if not configured_columns:
+        st.info("Add at least one table column above.")
+        slide_data[key] = []
+        return []
 
-    # Include the column names in the widget key so Streamlit redraws the table
-    # immediately when the user edits the column list.
-    column_signature = "__".join(configured_columns) if configured_columns else "default"
-    widget_key = f"table__{slide_id}__{key}__{column_signature}"
+    rows = normalize_table_rows(current_rows, configured_columns)
+    if not rows:
+        rows = [{col: "" for col in configured_columns}]
+
+    max_rows = int(field.get("max_rows", 8) or 8)
 
     st.caption(field.get("guide", ""))
-    edited = st.data_editor(
-        df,
-        key=widget_key,
-        hide_index=True,
-        num_rows="dynamic",
-        use_container_width=True,
-    )
-    rows = edited.fillna("").to_dict(orient="records")
-    slide_data[key] = rows
-    return rows
+
+    control_cols = st.columns([1, 1, 3])
+    with control_cols[0]:
+        if st.button(
+            "Add row",
+            key=f"table_add__{slide_id}__{key}",
+            disabled=len(rows) >= max_rows,
+            use_container_width=True,
+        ):
+            rows.append({col: "" for col in configured_columns})
+            slide_data[key] = rows
+            clear_table_cell_state(slide_id, key)
+            st.rerun()
+
+    with control_cols[1]:
+        if st.button(
+            "Remove row",
+            key=f"table_remove__{slide_id}__{key}",
+            disabled=len(rows) <= 1,
+            use_container_width=True,
+        ):
+            rows = rows[:-1]
+            slide_data[key] = rows
+            clear_table_cell_state(slide_id, key)
+            st.rerun()
+
+    with control_cols[2]:
+        st.caption(f"{len(rows)} / {max_rows} rows")
+
+    header_cols = st.columns([1 for _ in configured_columns])
+    for header_col, column_name in zip(header_cols, configured_columns):
+        header_col.markdown(f"**{column_name}**")
+
+    updated_rows: List[Dict[str, str]] = []
+    column_signature = "__".join(slug_for_widget(col) for col in configured_columns)
+
+    for row_index, row in enumerate(rows):
+        row_cols = st.columns([1 for _ in configured_columns])
+        updated_row: Dict[str, str] = {}
+
+        for col_index, column_name in enumerate(configured_columns):
+            cell_key = (
+                f"cell__{slide_id}__{key}__{row_index}__"
+                f"{column_signature}__{slug_for_widget(column_name)}"
+            )
+            if cell_key not in st.session_state:
+                st.session_state[cell_key] = row.get(column_name, "")
+
+            updated_row[column_name] = row_cols[col_index].text_input(
+                f"{column_name} row {row_index + 1}",
+                key=cell_key,
+                label_visibility="collapsed",
+            )
+
+        updated_rows.append(updated_row)
+
+    slide_data[key] = updated_rows
+    return updated_rows
 
 
 def render_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any]) -> None:
@@ -477,7 +575,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                 )
                 st.success(f"Draft saved to GitHub: {result.path}")
                 if result.html_url:
-                    st.caption("You can retrieve it from the drafts repo later and upload it with Load a saved draft (JSON file type).")
+                    st.caption("You can retrieve it from the drafts repo later and upload it with Load a saved draft JSON.")
             except GitHubDraftSaveError as exc:
                 st.error(str(exc))
             except Exception as exc:
@@ -631,7 +729,7 @@ def main() -> None:
         st.divider()
 
         with st.expander("Advanced: drafts/reset", expanded=False):
-            uploaded = st.file_uploader("Load a saved draft (JSON file type)", type=["json"])
+            uploaded = st.file_uploader("Load a saved draft JSON", type=["json"])
             if uploaded is not None:
                 if st.button("Load uploaded draft", use_container_width=True):
                     try:
@@ -642,7 +740,7 @@ def main() -> None:
                     except Exception as exc:
                         st.error(f"Could not load draft: {exc}")
 
-            if st.button("Reset to Sample Presentation", use_container_width=True):
+            if st.button("Reset to OxyKids example", use_container_width=True):
                 st.session_state.deck = make_default_deck()
                 clear_widget_state()
                 st.success("Reset complete.")

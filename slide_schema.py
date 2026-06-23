@@ -93,7 +93,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "opening_case",
         "label": "Opening case",
-        "export_title": "Opening Patient Case",
+        "export_title": "Opening patient case",
         "fields": [
             {
                 "key": "case_stem",
@@ -137,14 +137,14 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "patient_problem",
         "label": "Slide 1: Patient problem",
-        "export_title": "The Patient Problem",
+        "export_title": "The patient problem",
         "fields": [
             {
                 "key": "headline",
                 "label": "Slide headline",
                 "type": "text",
                 "required": True,
-                "max_words": 20,
+                "max_words": 14,
                 "default": "Oxygen saturation thresholds may drive care more than the child’s appearance",
                 "guide": "One clear sentence that frames the clinical problem.",
             },
@@ -154,7 +154,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "type": "textarea",
                 "required": True,
                 "max_lines": 5,
-                "max_words_per_line": 30,
+                "max_words_per_line": 18,
                 "default": "Oxygen thresholds are often based on tradition or guidelines with limited evidence.\nA higher threshold may prolong oxygen use and hospital stay.\nA lower threshold could reduce treatment burden.\nThe safety question matters: are we missing children who need oxygen?",
                 "guide": "One bullet per line. Avoid full paragraphs.",
             },
@@ -163,7 +163,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Discussion question",
                 "type": "text",
                 "required": True,
-                "max_words": 30,
+                "max_words": 18,
                 "default": "What SpO₂ number makes you uncomfortable, and why?",
                 "guide": "Should invite judgment, not recall.",
             },
@@ -181,7 +181,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "pico",
         "label": "Slide 2: Study question / PICO",
-        "export_title": "The Study Question",
+        "export_title": "The study question",
         "fields": [
             {
                 "key": "patient",
@@ -236,14 +236,14 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "study_design",
         "label": "Slide 3: What they did",
-        "export_title": "What They Did",
+        "export_title": "What they did",
         "fields": [
             {
                 "key": "design",
                 "label": "Study design",
                 "type": "text",
                 "required": True,
-                "max_words": 30,
+                "max_words": 18,
                 "default": "Pragmatic, multicenter, open-label randomized clinical trial.",
             },
             {
@@ -260,7 +260,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Who was included",
                 "type": "textarea",
                 "required": True,
-                "max_lines": 10,
+                "max_lines": 4,
                 "max_words_per_line": 16,
                 "default": "Children 6 weeks to 12 years.\nBronchiolitis, lower respiratory tract infection, or viral-induced wheeze.\nRequired oxygen by the standard 92% threshold.",
             },
@@ -269,7 +269,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Important exclusions",
                 "type": "textarea",
                 "required": True,
-                "max_lines": 10,
+                "max_lines": 6,
                 "max_words_per_line": 17,
                 "default": "Significant pre-existing cardiopulmonary, neurologic, immunologic, or hematologic conditions.\nBorn before 32 weeks’ gestation.\nOlder children with acute asthma.\nFamilies without Dutch or English language ability or stable internet access.",
             },
@@ -286,14 +286,14 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "main_result",
         "label": "Slide 4: What they found",
-        "export_title": "What They Found",
+        "export_title": "What they found",
         "fields": [
             {
                 "key": "main_result",
                 "label": "Main result headline",
                 "type": "text",
                 "required": True,
-                "max_words": 30,
+                "max_words": 18,
                 "default": "The 88% group met discharge criteria sooner.",
             },
             {
@@ -429,7 +429,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "clinical_bottom_line",
         "label": "Slide 5: What should we do?",
-        "export_title": "What Should We Do?",
+        "export_title": "What should we do?",
         "fields": [
             {
                 "key": "bottom_line",
@@ -478,7 +478,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "paper_framework",
         "label": "PAPER framework discussion",
-        "export_title": "PAPER Framework Discussion",
+        "export_title": "PAPER framework discussion",
         "fields": [
             {
                 "key": "patient_problem_answer",
@@ -525,7 +525,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "month_skill",
         "label": "Month 1 focus skill",
-        "export_title": "Monthly Focus Skill",
+        "export_title": "Month 1 focus skill",
         "fields": [
             {
                 "key": "skill_title",
@@ -566,7 +566,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "apply_back",
         "label": "Apply back to the patient",
-        "export_title": "Apply Back To The Patient",
+        "export_title": "Apply back to the patient",
         "fields": [
             {
                 "key": "return_question",
