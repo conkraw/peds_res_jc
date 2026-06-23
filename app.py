@@ -642,7 +642,7 @@ def main() -> None:
                     except Exception as exc:
                         st.error(f"Could not load draft: {exc}")
 
-            if st.button("Reset to OxyKids example", use_container_width=True):
+            if st.button("Reset to Sample Presentation", use_container_width=True):
                 st.session_state.deck = make_default_deck()
                 clear_widget_state()
                 st.success("Reset complete.")
