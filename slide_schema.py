@@ -163,7 +163,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Discussion question",
                 "type": "text",
                 "required": True,
-                "max_words": 18,
+                "max_words": 30,
                 "default": "What SpO₂ number makes you uncomfortable, and why?",
                 "guide": "Should invite judgment, not recall.",
             },
