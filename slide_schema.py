@@ -293,7 +293,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Main result headline",
                 "type": "text",
                 "required": True,
-                "max_words": 18,
+                "max_words": 30,
                 "default": "The 88% group met discharge criteria sooner.",
             },
             {
