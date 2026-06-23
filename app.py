@@ -477,7 +477,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                 )
                 st.success(f"Draft saved to GitHub: {result.path}")
                 if result.html_url:
-                    st.caption("You can retrieve it from the drafts repo later and upload it with Load a saved draft JSON.")
+                    st.caption("You can retrieve it from the drafts repo later and upload it with Load a saved draft (JSON file type).")
             except GitHubDraftSaveError as exc:
                 st.error(str(exc))
             except Exception as exc:
