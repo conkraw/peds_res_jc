@@ -154,7 +154,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "type": "textarea",
                 "required": True,
                 "max_lines": 5,
-                "max_words_per_line": 18,
+                "max_words_per_line": 30,
                 "default": "Oxygen thresholds are often based on tradition or guidelines with limited evidence.\nA higher threshold may prolong oxygen use and hospital stay.\nA lower threshold could reduce treatment burden.\nThe safety question matters: are we missing children who need oxygen?",
                 "guide": "One bullet per line. Avoid full paragraphs.",
             },
