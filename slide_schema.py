@@ -144,7 +144,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Slide headline",
                 "type": "text",
                 "required": True,
-                "max_words": 14,
+                "max_words": 20,
                 "default": "Oxygen saturation thresholds may drive care more than the child’s appearance",
                 "guide": "One clear sentence that frames the clinical problem.",
             },
