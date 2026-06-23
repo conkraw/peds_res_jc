@@ -404,7 +404,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "type": "textarea",
                 "required": True,
                 "max_lines": 7,
-                "max_words_per_line": 18,
+                "max_words_per_line": 30,
                 "default": "Time to meeting discharge criteria: 27.6 h with 88% vs 46.6 h with 92%.\nLength of stay: 39.8 h with 88% vs 60.8 h with 92%.\nMore children in the 88% group never received oxygen.\nOxygen duration was shorter in the 88% group.\nSafety outcomes did not significantly differ.",
                 "guide": "Used when no visual is selected and in the facilitator guide.",
             },
