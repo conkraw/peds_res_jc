@@ -243,7 +243,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Study design",
                 "type": "text",
                 "required": True,
-                "max_words": 18,
+                "max_words": 30,
                 "default": "Pragmatic, multicenter, open-label randomized clinical trial.",
             },
             {
