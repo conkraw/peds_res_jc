@@ -566,7 +566,7 @@ def build_final_bottom_line_slide(prs, deck):
         10.65,
         takehome_h,
         resident_take_home,
-        font_size=22,
+        font_size=30,
         bold=True,
         color=COLOR_ACCENT,
         align=PP_ALIGN.CENTER,
