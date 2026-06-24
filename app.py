@@ -816,7 +816,6 @@ def main() -> None:
                 if uploaded_article is None:
                     st.warning(
                         "Please upload the journal article PDF before saving. "
-                        "You can continue without it, but the GitHub archive will not include the article."
                     )
                 else:
                     st.success(f"Article ready to save: {uploaded_article.name}")
