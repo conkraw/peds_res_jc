@@ -21,7 +21,7 @@ class GitHubDraftLoadError(RuntimeError):
 
 
 @dataclass
-class GitHubSaveResult:
+class GitHubResult:
     path: str
     html_url: str
     commit_sha: str
@@ -164,7 +164,72 @@ def save_draft_to_github(
         commit_sha=commit.get("sha", ""),
     )
 
+def save_article_to_github(
+    article_bytes: bytes,
+    original_filename: str,
+    presenter_name: str,
+    session_title: str,
+) -> GitHubSaveResult:
+    """Create or update the uploaded article file in the configured GitHub repo."""
+    cfg = _read_github_config()
 
+    if not github_backup_is_configured():
+        raise GitHubDraftSaveError(github_config_status_message())
+
+    base_filename = build_draft_filename(presenter_name, session_title).replace(".json", "")
+    clean_article_name = slugify(original_filename.rsplit(".", 1)[0])
+    extension = original_filename.rsplit(".", 1)[-1].lower()
+
+    filename = f"{base_filename}_{clean_article_name}.{extension}"
+    path = f"{cfg['base_path']}/articles/{filename}"
+
+    api_path = quote(path, safe="/")
+    api_url = f"https://api.github.com/repos/{cfg['repo']}/contents/{api_path}"
+
+    encoded_content = base64.b64encode(article_bytes).decode("utf-8")
+    headers = _github_headers(cfg["token"])
+
+    existing_sha = None
+    existing = requests.get(
+        api_url,
+        headers=headers,
+        params={"ref": cfg["branch"]},
+        timeout=30,
+    )
+
+    if existing.status_code == 200:
+        existing_sha = existing.json().get("sha")
+    elif existing.status_code != 404:
+        raise GitHubDraftSaveError(
+            f"Could not check existing GitHub article ({existing.status_code}): {existing.text}"
+        )
+
+    data = {
+        "message": f"Save journal club article: {filename}",
+        "content": encoded_content,
+        "branch": cfg["branch"],
+    }
+
+    if existing_sha:
+        data["sha"] = existing_sha
+
+    response = requests.put(api_url, headers=headers, json=data, timeout=30)
+
+    if response.status_code not in (200, 201):
+        raise GitHubDraftSaveError(
+            f"GitHub article save failed ({response.status_code}): {response.text}"
+        )
+
+    result = response.json()
+    content = result.get("content", {}) or {}
+    commit = result.get("commit", {}) or {}
+
+    return GitHubSaveResult(
+        path=content.get("path", path),
+        html_url=content.get("html_url", ""),
+        commit_sha=commit.get("sha", ""),
+    )
+    
 def list_drafts_from_github(presenter_name: str = "") -> List[Dict[str, Any]]:
     """List saved JSON drafts from the configured GitHub drafts folder.
 
