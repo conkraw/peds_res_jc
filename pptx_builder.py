@@ -507,18 +507,18 @@ def build_final_bottom_line_slide(prs, deck):
     final_summary = data.get("final_summary")
     resident_take_home = data.get("resident_take_home")
 
-    summary_x = 1.0
-    summary_y = 1.35
-    summary_w = 11.3
-    summary_font_size = 22
+    summary_x = 0.95
+    summary_y = 1.25
+    summary_w = 11.45
+    summary_font_size = 20
 
     summary_h = estimate_textbox_height(
         final_summary,
         width_inches=summary_w,
         font_size=summary_font_size,
         min_height=0.65,
-        max_height=1.75,
-        padding=0.25,
+        max_height=1.45,
+        padding=0.18,
     )
 
     add_textbox(
@@ -532,45 +532,46 @@ def build_final_bottom_line_slide(prs, deck):
         bold=True,
         fill=COLOR_ACCENT_LIGHT,
         align=PP_ALIGN.CENTER,
+        margin=0.05,
     )
 
-    # Move the take-home section based on the actual height of the blue summary box.
-    takehome_label_y = summary_y + summary_h + 0.75
-    takehome_text_y = takehome_label_y + 0.65
+    # Tighter spacing than before
+    takehome_label_y = summary_y + summary_h + 0.55
+    takehome_text_y = takehome_label_y + 0.58
 
     add_section_label(
         slide,
-        2.2,
+        2.25,
         takehome_label_y,
-        8.9,
+        8.8,
         "Resident take-home sentence",
     )
 
     takehome_h = estimate_textbox_height(
         resident_take_home,
-        width_inches=10.6,
-        font_size=24,
-        min_height=0.75,
-        max_height=1.35,
-        padding=0.2,
+        width_inches=10.5,
+        font_size=22,
+        min_height=0.65,
+        max_height=1.25,
+        padding=0.12,
     )
 
     add_textbox(
         slide,
-        1.4,
+        1.35,
         takehome_text_y,
-        10.6,
+        10.65,
         takehome_h,
         resident_take_home,
-        font_size=24,
+        font_size=22,
         bold=True,
         color=COLOR_ACCENT,
         align=PP_ALIGN.CENTER,
+        margin=0.04,
     )
 
     add_footer(slide)
     return slide
-
 def build_feedback_slide(prs, deck):
     """Final fixed feedback slide.
 
