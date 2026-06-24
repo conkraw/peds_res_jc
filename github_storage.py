@@ -81,7 +81,7 @@ def github_config_status_message() -> str:
     if missing:
         return "Missing Streamlit secrets: " + ", ".join(missing)
     #return f"Configured to save drafts to {cfg['repo']} on branch {cfg['branch']}."
-    #return f"Storage Archive Activated and Ready for Use"
+    return f"Storage Archive Activated and Ready for Use"
 
 
 def make_draft_payload(
