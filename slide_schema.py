@@ -453,7 +453,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Why I trust it",
                 "type": "textarea",
                 "required": True,
-                "max_lines": 5,
+                "max_lines": 10,
                 "max_words_per_line": 20,
                 "default": "Randomized and pragmatic.\nClinically relevant outcome.\nMeaningful effect size.\nShort-term safety outcomes were reassuring.",
             },
@@ -462,7 +462,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Why I am cautious",
                 "type": "textarea",
                 "required": True,
-                "max_lines": 7,
+                "max_lines": 10,
                 "max_words_per_line": 20,
                 "default": "Open-label design.\nPrimary outcome included SpO₂ threshold.\nConducted in the Netherlands.\nFew children with darker skin tones.\nExcluded important groups we care for.\nNot designed to prove rare harms or long-term safety.",
             },
@@ -494,7 +494,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "P — Patient problem",
                 "type": "textarea",
                 "required": True,
-                "max_words": 50,
+                "max_words": 100,
                 "default": "We may be treating a number instead of treating the child. Higher oxygen thresholds may keep children hospitalized longer.",
                 "height":100
             },
@@ -503,7 +503,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "A — Article type",
                 "type": "textarea",
                 "required": True,
-                "max_words": 50,
+                "max_words": 100,
                 "default": "This is a randomized clinical trial, which is appropriate because the authors are testing an intervention: one oxygen threshold versus another.",
                 "height":100
             },
@@ -512,7 +512,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "P — Primary question / outcome",
                 "type": "textarea",
                 "required": True,
-                "max_words": 50,
+                "max_words": 100,
                 "default": "Can an 88% SpO₂ threshold safely reduce time to discharge readiness compared with 92%? The primary outcome was time from admission to meeting predefined discharge criteria.",
                 "height":100
             },
@@ -521,7 +521,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "E — Evidence quality",
                 "type": "textarea",
                 "required": True,
-                "max_words": 50,
+                "max_words": 100,
                 "default": "Mostly trustworthy, but not perfect. The trial was randomized, multicenter, pragmatic, and clinically meaningful, but it was open-label and the primary outcome partly depended on the assigned oxygen threshold.",
                 "height":100
             },
@@ -530,7 +530,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "R — Real-world use",
                 "type": "textarea",
                 "required": True,
-                "max_words": 50,
+                "max_words": 100,
                 "default": "Maybe, but only through a local pathway or guideline discussion, not by individual clinicians freelancing. Nursing, ED, hospital medicine, pulmonology, and family communication would matter.",
                 "height":100
             },
@@ -563,8 +563,8 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Use this paper as the example",
                 "type": "textarea",
                 "required": True,
-                "max_lines": 5,
-                "max_words_per_line": 20,
+                #"max_lines": 5,
+                #"max_words_per_line": 20,
                 "default": "Question: Can we use 88% instead of 92% as the oxygen threshold?\nStudy type: Randomized clinical trial.\nPrimary outcome: Time to meeting discharge criteria.\nMain result: About 17 hours sooner with the 88% threshold.\nClinical bottom line: Selected children may need less oxygen and shorter hospitalization.",
             },
             {
