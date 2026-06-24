@@ -496,6 +496,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 45,
                 "default": "We may be treating a number instead of treating the child. Higher oxygen thresholds may keep children hospitalized longer.",
+                "height":100
             },
             {
                 "key": "article_type_answer",
@@ -504,6 +505,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 35,
                 "default": "This is a randomized clinical trial, which is appropriate because the authors are testing an intervention: one oxygen threshold versus another.",
+                "height":100
             },
             {
                 "key": "primary_question_answer",
@@ -512,6 +514,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 45,
                 "default": "Can an 88% SpO₂ threshold safely reduce time to discharge readiness compared with 92%? The primary outcome was time from admission to meeting predefined discharge criteria.",
+                "height":100
             },
             {
                 "key": "evidence_quality_answer",
@@ -520,6 +523,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 55,
                 "default": "Mostly trustworthy, but not perfect. The trial was randomized, multicenter, pragmatic, and clinically meaningful, but it was open-label and the primary outcome partly depended on the assigned oxygen threshold.",
+                "height":100
             },
             {
                 "key": "real_world_answer",
@@ -528,6 +532,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 50,
                 "default": "Maybe, but only through a local pathway or guideline discussion, not by individual clinicians freelancing. Nursing, ED, hospital medicine, pulmonology, and family communication would matter.",
+                "height":100
             },
         ],
     },
