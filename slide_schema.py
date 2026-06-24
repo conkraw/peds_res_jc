@@ -103,7 +103,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "max_words": 95,
                 "default": "A 9-month-old, previously healthy child is admitted to the general pediatrics floor with bronchiolitis. The child has mild to moderate work of breathing, is drinking enough to avoid IV fluids, and is otherwise improving. Overnight, the pulse oximeter reads 88–91% while asleep. The nurse asks whether to restart oxygen to keep the saturation above 92%.",
                 "guide": "Brief clinical setup. Keep it realistic and readable aloud.",
-                "height":90
+                "height":100
             },
             {
                 "key": "question",
