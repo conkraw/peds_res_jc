@@ -396,3 +396,102 @@ def load_draft_from_github(path: str) -> Dict[str, Any]:
         raise GitHubDraftLoadError(f"GitHub draft is not valid JSON: {exc}") from exc
 
     return data
+
+def delete_file_from_github(path: str, commit_message: str) -> GitHubResult:
+    """Delete one file from the configured GitHub repo."""
+    cfg = _read_github_config()
+
+    if not github_backup_is_configured():
+        raise GitHubDraftSaveError(github_config_status_message())
+
+    clean_path = str(path or "").strip().lstrip("/")
+    if not clean_path:
+        raise GitHubDraftSaveError("No GitHub file path was provided for deletion.")
+
+    api_path = quote(clean_path, safe="/")
+    api_url = f"https://api.github.com/repos/{cfg['repo']}/contents/{api_path}"
+    headers = _github_headers(cfg["token"])
+
+    existing = requests.get(
+        api_url,
+        headers=headers,
+        params={"ref": cfg["branch"]},
+        timeout=30,
+    )
+
+    if existing.status_code == 404:
+        raise GitHubDraftSaveError(f"File not found in GitHub: {clean_path}")
+
+    if existing.status_code != 200:
+        raise GitHubDraftSaveError(
+            f"Could not check GitHub file before deletion ({existing.status_code}): {existing.text}"
+        )
+
+    sha = existing.json().get("sha")
+    if not sha:
+        raise GitHubDraftSaveError(f"Could not determine GitHub SHA for {clean_path}")
+
+    data = {
+        "message": commit_message,
+        "sha": sha,
+        "branch": cfg["branch"],
+    }
+
+    response = requests.delete(
+        api_url,
+        headers=headers,
+        json=data,
+        timeout=30,
+    )
+
+    if response.status_code not in (200, 201):
+        raise GitHubDraftSaveError(
+            f"GitHub delete failed ({response.status_code}): {response.text}"
+        )
+
+    result = response.json()
+    commit = result.get("commit", {}) or {}
+
+    return GitHubResult(
+        path=clean_path,
+        html_url="",
+        commit_sha=commit.get("sha", ""),
+    )
+
+
+def delete_draft_and_article_from_github(
+    draft_path: str,
+    delete_article: bool = True,
+) -> Dict[str, Any]:
+    """
+    Delete a saved draft JSON and, if present, its associated article PDF.
+
+    The article path is read from the JSON payload's article.path field.
+    """
+    deleted: List[str] = []
+    warnings: List[str] = []
+
+    loaded = load_draft_from_github(draft_path)
+    article = loaded.get("article", {}) if isinstance(loaded, dict) else {}
+    article_path = article.get("path") if isinstance(article, dict) else ""
+
+    if delete_article and article_path:
+        try:
+            delete_file_from_github(
+                article_path,
+                commit_message=f"Delete journal club article: {article_path}",
+            )
+            deleted.append(article_path)
+        except Exception as exc:
+            warnings.append(f"Could not delete article {article_path}: {exc}")
+
+    delete_file_from_github(
+        draft_path,
+        commit_message=f"Delete journal club draft: {draft_path}",
+    )
+    deleted.append(draft_path)
+
+    return {
+        "deleted": deleted,
+        "warnings": warnings,
+    }
