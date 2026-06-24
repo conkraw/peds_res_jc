@@ -22,6 +22,7 @@ from github_storage import (
     load_file_bytes_from_github,
     save_draft_to_github,
     save_article_to_github,
+    delete_draft_and_article_from_github,
 
 )
 from slide_schema import SLIDES, make_default_deck
@@ -67,6 +68,13 @@ def normalize_deck(deck_or_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]
                     default[sid][fkey] = deck[sid][fkey]
     return default
 
+def delete_passcode_is_valid(passcode: str) -> bool:
+    try:
+        expected = str(st.secrets.get("admin", {}).get("delete_passcode", "")).strip()
+    except Exception:
+        expected = ""
+
+    return bool(expected) and str(passcode or "").strip() == expected
 
 def initialize_state() -> None:
     if "deck" not in st.session_state:
@@ -704,6 +712,65 @@ def render_github_recovery() -> None:
             st.caption(f"GitHub path: {selected_path}")
 
             if st.button("Load selected draft", use_container_width=True):
+                with st.expander("Danger zone: delete selected draft", expanded=False):
+                    st.warning(
+                        "This will delete the selected JSON draft from GitHub. "
+                        "If the draft has a saved article PDF, you can delete that too."
+                    )
+    
+                    delete_article_too = st.checkbox(
+                        "Also delete the associated article PDF, if one exists",
+                        value=True,
+                        key="delete_article_too",
+                    )
+    
+                    delete_passcode = st.text_input(
+                        "Delete passcode",
+                        type="password",
+                        key="delete_passcode",
+                        help="Only mentors/admins with the delete passcode can delete GitHub files.",
+                    )
+    
+                    confirm_delete = st.checkbox(
+                        "I understand this will delete files from the GitHub archive",
+                        key="confirm_delete_github_draft",
+                    )
+    
+                    if st.button("Delete selected draft from GitHub", use_container_width=True):
+                        if not confirm_delete:
+                            st.error("Please check the confirmation box before deleting.")
+                        elif not delete_passcode_is_valid(delete_passcode):
+                            st.error("Incorrect or missing delete passcode.")
+                        else:
+                            try:
+                                delete_result = delete_draft_and_article_from_github(
+                                    draft_path=selected_path,
+                                    delete_article=delete_article_too,
+                                )
+    
+                                deleted = delete_result.get("deleted", [])
+                                warnings = delete_result.get("warnings", [])
+    
+                                if deleted:
+                                    st.success("Deleted:\n" + "\n".join(deleted))
+    
+                                for warning in warnings:
+                                    st.warning(warning)
+    
+                                # Remove deleted item from current search results
+                                st.session_state.github_draft_results = [
+                                    draft for draft in st.session_state.get("github_draft_results", [])
+                                    if draft.get("path") != selected_path
+                                ]
+    
+                                st.rerun()
+    
+                            except GitHubDraftSaveError as exc:
+                                st.error(str(exc))
+                            except GitHubDraftLoadError as exc:
+                                st.error(str(exc))
+                            except Exception as exc:
+                                st.error(f"Unexpected GitHub delete error: {exc}")
                 try:
                     loaded = load_draft_from_github(selected_path)
                     apply_loaded_payload_to_session(loaded)
