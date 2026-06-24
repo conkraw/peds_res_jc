@@ -423,11 +423,12 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 50,
                 "default": "Using 88% instead of 92% got children ready for discharge about 17 hours sooner, with less oxygen use and no clear short-term safety signal in this trial.",
+                "height":100
             },
             {
                 "key": "discussion_question",
                 "label": "Discussion question",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 28,
                 "default": "What result matters most to you: discharge readiness, actual length of stay, oxygen duration, or safety outcomes?",
