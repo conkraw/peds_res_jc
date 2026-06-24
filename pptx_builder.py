@@ -21,8 +21,7 @@ from feedback_config import (
     REDCAP_QR_URL,
     THANK_YOU_MESSAGE,
     THANK_YOU_TITLE,
-)
-'
+)'
 
 
 
