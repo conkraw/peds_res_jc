@@ -295,13 +295,22 @@ def list_drafts_from_github(presenter_name: str = "") -> List[Dict[str, Any]]:
     return drafts
 
 def load_file_bytes_from_github(path: str) -> bytes:
-    """Load any saved file from the configured GitHub repo as bytes."""
+    """Load any saved file from the configured GitHub repo as bytes.
+
+    The GitHub Contents API returns base64 content for smaller files. For some
+    larger PDFs, the JSON response may not include the content field, so this
+    falls back to the raw-content response using the same authenticated API URL.
+    """
     cfg = _read_github_config()
 
     if not github_backup_is_configured():
         raise GitHubDraftLoadError(github_config_status_message())
 
-    api_path = quote(path, safe="/")
+    clean_path = str(path or "").strip().lstrip("/")
+    if not clean_path:
+        raise GitHubDraftLoadError("No GitHub file path was provided.")
+
+    api_path = quote(clean_path, safe="/")
     api_url = f"https://api.github.com/repos/{cfg['repo']}/contents/{api_path}"
 
     headers = _github_headers(cfg["token"])
@@ -318,13 +327,37 @@ def load_file_bytes_from_github(path: str) -> bytes:
             f"Could not load GitHub file ({response.status_code}): {response.text}"
         )
 
-    payload = response.json()
-    encoded_content = payload.get("content", "")
+    try:
+        payload = response.json()
+    except Exception:
+        payload = {}
 
-    if not encoded_content:
-        raise GitHubDraftLoadError("GitHub file did not contain downloadable content.")
+    encoded_content = str(payload.get("content", "") or "").replace("\n", "")
+    encoding = str(payload.get("encoding", "") or "").lower()
 
-    return base64.b64decode(encoded_content)
+    if encoded_content and encoding in {"base64", ""}:
+        try:
+            return base64.b64decode(encoded_content)
+        except Exception as exc:
+            raise GitHubDraftLoadError(f"GitHub file content could not be decoded: {exc}") from exc
+
+    # Fallback for larger files: ask the Contents API for raw bytes.
+    raw_headers = _github_headers(cfg["token"])
+    raw_headers["Accept"] = "application/vnd.github.raw"
+    raw_response = requests.get(
+        api_url,
+        headers=raw_headers,
+        params={"ref": cfg["branch"]},
+        timeout=30,
+    )
+
+    if raw_response.status_code == 200 and raw_response.content:
+        return raw_response.content
+
+    raise GitHubDraftLoadError(
+        f"GitHub file did not contain downloadable content. Raw download also failed "
+        f"({raw_response.status_code}): {raw_response.text}"
+    )
     
 def load_draft_from_github(path: str) -> Dict[str, Any]:
     """Load and decode one JSON draft from GitHub."""

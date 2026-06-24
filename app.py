@@ -75,6 +75,11 @@ def initialize_state() -> None:
         st.session_state.selected_slide_id = SLIDES[0]["id"]
     if "include_facilitator_notes" not in st.session_state:
         st.session_state.include_facilitator_notes = True
+    # Metadata for an article PDF already saved with a GitHub draft.
+    # Streamlit cannot pre-fill st.file_uploader(), so this is how the app
+    # remembers and surfaces the saved article after a draft is reloaded.
+    if "saved_article" not in st.session_state:
+        st.session_state.saved_article = {}
 
 
 def nav_label(slide: Dict[str, Any]) -> str:
@@ -522,8 +527,18 @@ def apply_loaded_payload_to_session(loaded: Dict[str, Any]) -> None:
     Do not directly assign Streamlit widget keys here. This function can be
     called after widgets are already rendered in the same run, and Streamlit
     disallows changing widget-backed session_state keys after instantiation.
+
+    Important: st.file_uploader() cannot be pre-filled from GitHub. Instead,
+    the saved article metadata is kept separately in session_state so the app
+    can show a Download saved article button after reloading a draft.
     """
     st.session_state.deck = normalize_deck(loaded)
+
+    article_metadata: Dict[str, Any] = {}
+    if isinstance(loaded, dict) and isinstance(loaded.get("article"), dict):
+        article_metadata = loaded.get("article", {}) or {}
+    st.session_state.saved_article = article_metadata
+
     clear_widget_state()
 
 
@@ -798,19 +813,20 @@ def main() -> None:
                 if st.button("Load uploaded draft", use_container_width=True):
                     try:
                         loaded = json.loads(uploaded.getvalue().decode("utf-8"))
-                        st.session_state.deck = normalize_deck(loaded)
-                        clear_widget_state()
+                        apply_loaded_payload_to_session(loaded)
                         st.success("Draft loaded.")
                     except Exception as exc:
                         st.error(f"Could not load draft: {exc}")
 
             if st.button("Reset to OxyKids example", use_container_width=True):
                 st.session_state.deck = make_default_deck()
+                st.session_state.saved_article = {}
                 clear_widget_state()
                 st.success("Reset complete.")
 
             if st.button("Clear all fields", use_container_width=True):
                 st.session_state.deck = make_default_deck()
+                st.session_state.saved_article = {}
             
                 for slide in SLIDES:
                     for field in slide["fields"]:
@@ -822,7 +838,7 @@ def main() -> None:
             
                 clear_widget_state()
                 st.success("All fields cleared.")
-                #st.rerun()
+                st.rerun()
 
     selected_slide = next(slide for slide in SLIDES if slide["id"] == st.session_state.selected_slide_id)
     selected_slide_data = st.session_state.deck[selected_slide["id"]]
