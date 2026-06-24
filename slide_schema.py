@@ -188,7 +188,7 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "patient",
                 "label": "Patient/problem",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 45,
                 "default": "Children 6 weeks to 12 years old hospitalized on general pediatric wards with acute respiratory distress from bronchiolitis, lower respiratory tract infection, or acute viral-induced wheeze.",
@@ -196,7 +196,7 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "intervention",
                 "label": "Intervention",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 25,
                 "default": "Use an SpO₂ threshold of 88% to start, continue, or wean oxygen.",
@@ -204,7 +204,7 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "comparison",
                 "label": "Comparison",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 20,
                 "default": "Use an SpO₂ threshold of 92%.",
@@ -212,7 +212,7 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "outcome",
                 "label": "Outcome",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 32,
                 "default": "Primary outcome: time from admission to meeting predefined discharge criteria.",
