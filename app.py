@@ -756,6 +756,21 @@ def main() -> None:
                 clear_widget_state()
                 st.success("Reset complete.")
 
+            if st.button("Clear all fields", use_container_width=True):
+                st.session_state.deck = make_default_deck()
+            
+                for slide in SLIDES:
+                    for field in slide["fields"]:
+                        field_key = field["key"]
+                        if field.get("type") == "table":
+                            st.session_state.deck[slide["id"]][field_key] = []
+                        else:
+                            st.session_state.deck[slide["id"]][field_key] = ""
+            
+                clear_widget_state()
+                st.success("All fields cleared.")
+                #st.rerun()
+
     selected_slide = next(slide for slide in SLIDES if slide["id"] == st.session_state.selected_slide_id)
     selected_slide_data = st.session_state.deck[selected_slide["id"]]
 
