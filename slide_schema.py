@@ -586,10 +586,11 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "return_question",
                 "label": "Return-to-case question",
-                "type": "text",
+                "type": "textarea",
                 "required": True,
-                "max_words": 50,
+                "max_words": 100,
                 "default": "After reviewing the article, would you restart oxygen for asleep SpO₂ 88–91% if the child otherwise looks well?",
+                "height":100
             },
             {
                 "key": "vote_options",
