@@ -53,13 +53,13 @@ SLIDES: List[Dict[str, Any]] = [
         "fields": [
             {
                 "key": "session_title",
-                "label": "Session title",
+                "label": "Session Title",
                 "type": "text",
                 "required": True,
                 "max_words": 12,
                 "default": "First Journal Club: OxyKids Trial",
                 "guide": "Short name for the session.",
-                "height":90
+                "height":160
             },
             {
                 "key": "article_title",
