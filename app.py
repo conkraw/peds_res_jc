@@ -543,12 +543,14 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
         current_deck_title = default_session_title(deck)
         previous_deck_title = st.session_state.get("_last_github_deck_title", "")
         current_saved_title = st.session_state.get("github_session_title", "")
+
         if (
             "github_session_title" not in st.session_state
             or not str(current_saved_title).strip()
             or current_saved_title == previous_deck_title
         ):
             st.session_state.github_session_title = current_deck_title
+
         st.session_state._last_github_deck_title = current_deck_title
 
         session_title = st.text_input(
@@ -563,6 +565,19 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
             st.info(github_config_status_message())
             st.caption("Add Streamlit secrets first. See README.md for setup instructions.")
 
+        article_file = st.session_state.get("uploaded_article_pdf")
+        saved_article = st.session_state.get("saved_article", {}) or {}
+
+        if article_file is None and not saved_article.get("path"):
+            st.warning(
+                "No journal article PDF uploaded yet. The draft can still be saved, "
+                "but the GitHub archive will not include the article."
+            )
+        elif article_file is not None:
+            st.success(f"Article PDF ready to save: {article_file.name}")
+        elif saved_article.get("path"):
+            st.success(f"Existing article will be kept: {saved_article.get('filename', saved_article.get('path'))}")
+
         if st.button("Save draft to GitHub", use_container_width=True):
             if not presenter_name.strip():
                 st.error("Please enter the presenter name before saving.")
@@ -572,16 +587,9 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                 return
 
             try:
-                result = save_draft_to_github(
-                    deck=deck,
-                    presenter_name=presenter_name,
-                    session_title=session_title,
-                    app_version=PROJECT_VERSION,
-                )
-                
-                messages = [f"Draft saved to GitHub: {result.path}"]
-                
-                article_file = st.session_state.get("uploaded_article_pdf")
+                article_metadata = saved_article
+
+                # 1. Save article first if a new one was uploaded
                 if article_file is not None:
                     article_result = save_article_to_github(
                         article_bytes=article_file.getvalue(),
@@ -589,21 +597,45 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                         presenter_name=presenter_name,
                         session_title=session_title,
                     )
-                    messages.append(f"Article saved to GitHub: {article_result.path}")
-                
+
+                    article_metadata = {
+                        "filename": article_file.name,
+                        "path": article_result.path,
+                        "html_url": article_result.html_url,
+                        "commit_sha": article_result.commit_sha,
+                    }
+
+                    st.session_state.saved_article = article_metadata
+
+                # 2. Save JSON draft after article metadata exists
+                result = save_draft_to_github(
+                    deck=deck,
+                    presenter_name=presenter_name,
+                    session_title=session_title,
+                    app_version=PROJECT_VERSION,
+                    article=article_metadata,
+                )
+
+                messages = [f"Draft saved to GitHub: {result.path}"]
+
+                if article_file is not None:
+                    messages.append(f"Article saved to GitHub: {article_metadata['path']}")
+                elif article_metadata.get("path"):
+                    messages.append(f"Existing article kept: {article_metadata['path']}")
+                else:
+                    messages.append("No article PDF uploaded.")
+
                 st.success("\n".join(messages))
+
                 if result.html_url:
-                    st.caption("You can retrieve it from the drafts repo later and upload it with Load a saved draft JSON.")
+                    st.caption(
+                        "You can retrieve it from the drafts repo later and reload it from GitHub."
+                    )
+
             except GitHubDraftSaveError as exc:
                 st.error(str(exc))
             except Exception as exc:
                 st.error(f"Unexpected GitHub save error: {exc}")
-
-            article_file = st.session_state.get("uploaded_article_pdf")
-
-            if article_file is None:
-                st.warning("No journal article PDF uploaded yet.")
-
 
 def render_github_recovery() -> None:
     with st.expander("Reload draft from GitHub", expanded=False):
