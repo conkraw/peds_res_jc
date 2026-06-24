@@ -59,7 +59,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "max_words": 12,
                 "default": "First Journal Club: OxyKids Trial",
                 "guide": "Short name for the session.",
-                "height":160
+                "height":2200
             },
             {
                 "key": "article_title",
