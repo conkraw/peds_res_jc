@@ -586,7 +586,7 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "return_question",
                 "label": "Return-to-case question",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 35,
                 "default": "After reviewing the article, would you restart oxygen for asleep SpO₂ 88–91% if the child otherwise looks well?",
@@ -607,6 +607,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 60,
                 "default": "I would be most comfortable with ‘maybe, but only in selected patients.’ This article gives strong support for a local pathway discussion, but we should be careful about applying it to patients who were excluded or underrepresented.",
+                "height":100
             },
         ],
     },
