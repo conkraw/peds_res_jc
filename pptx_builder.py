@@ -553,7 +553,7 @@ def build_final_bottom_line_slide(prs, deck):
     takehome_h = estimate_textbox_height(
         resident_take_home,
         width_inches=10.65,
-        font_size=22,
+        font_size=30,
         min_height=0.65,
         max_height=1.35,
         padding=0.16,
@@ -566,7 +566,7 @@ def build_final_bottom_line_slide(prs, deck):
         10.65,
         takehome_h,
         resident_take_home,
-        font_size=30,
+        font_size=22,
         bold=True,
         color=COLOR_ACCENT,
         align=PP_ALIGN.CENTER,
