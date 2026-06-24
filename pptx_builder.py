@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import math 
 from io import BytesIO
 from typing import Any, Dict, Iterable, List
 
@@ -21,6 +22,10 @@ from feedback_config import (
     THANK_YOU_MESSAGE,
     THANK_YOU_TITLE,
 )
+'
+
+
+
 
 # Simple, conservative styling. Change these values if you want a Penn State-like theme.
 COLOR_DARK = RGBColor(35, 35, 35)
@@ -45,6 +50,39 @@ def _safe_text(value: Any) -> str:
 def _lines(value: Any) -> List[str]:
     return [line.strip() for line in _safe_text(value).splitlines() if line.strip()]
 
+def estimate_textbox_height(
+    text: Any,
+    width_inches: float,
+    font_size: int,
+    min_height: float = 0.45,
+    max_height: float = 2.2,
+    padding: float = 0.25,
+) -> float:
+    """
+    Estimate textbox height in inches based on text length, box width, and font size.
+    This is not pixel-perfect, but it works well enough for PowerPoint layout.
+    """
+
+    clean_text = _safe_text(text).strip()
+    if not clean_text:
+        return min_height
+
+    # Bigger font = fewer characters per line.
+    # Wider box = more characters per line.
+    chars_per_line = max(20, int(width_inches * (105 / font_size)))
+
+    wrapped_lines = 0
+    for paragraph in clean_text.splitlines():
+        paragraph = paragraph.strip()
+        if not paragraph:
+            wrapped_lines += 1
+        else:
+            wrapped_lines += math.ceil(len(paragraph) / chars_per_line)
+
+    line_height = font_size * 0.018
+    estimated = padding + wrapped_lines * line_height
+
+    return max(min_height, min(max_height, estimated))
 
 def add_textbox(
     slide,
@@ -466,12 +504,73 @@ def build_final_bottom_line_slide(prs, deck):
     data = deck["final_bottom_line"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "Final bottom line")
-    add_textbox(slide, 1.0, 1.45, 11.3, 1.55, data.get("final_summary"), font_size=22, bold=True, fill=COLOR_ACCENT_LIGHT, align=PP_ALIGN.CENTER)
-    add_section_label(slide, 2.2, 4.25, 8.9, "Resident take-home sentence")
-    add_textbox(slide, 1.4, 4.9, 10.6, 0.95, data.get("resident_take_home"), font_size=24, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
+
+    final_summary = data.get("final_summary")
+    resident_take_home = data.get("resident_take_home")
+
+    summary_x = 1.0
+    summary_y = 1.35
+    summary_w = 11.3
+    summary_font_size = 22
+
+    summary_h = estimate_textbox_height(
+        final_summary,
+        width_inches=summary_w,
+        font_size=summary_font_size,
+        min_height=0.65,
+        max_height=1.75,
+        padding=0.25,
+    )
+
+    add_textbox(
+        slide,
+        summary_x,
+        summary_y,
+        summary_w,
+        summary_h,
+        final_summary,
+        font_size=summary_font_size,
+        bold=True,
+        fill=COLOR_ACCENT_LIGHT,
+        align=PP_ALIGN.CENTER,
+    )
+
+    # Move the take-home section based on the actual height of the blue summary box.
+    takehome_label_y = summary_y + summary_h + 0.75
+    takehome_text_y = takehome_label_y + 0.65
+
+    add_section_label(
+        slide,
+        2.2,
+        takehome_label_y,
+        8.9,
+        "Resident take-home sentence",
+    )
+
+    takehome_h = estimate_textbox_height(
+        resident_take_home,
+        width_inches=10.6,
+        font_size=24,
+        min_height=0.75,
+        max_height=1.35,
+        padding=0.2,
+    )
+
+    add_textbox(
+        slide,
+        1.4,
+        takehome_text_y,
+        10.6,
+        takehome_h,
+        resident_take_home,
+        font_size=24,
+        bold=True,
+        color=COLOR_ACCENT,
+        align=PP_ALIGN.CENTER,
+    )
+
     add_footer(slide)
     return slide
-
 
 def build_feedback_slide(prs, deck):
     """Final fixed feedback slide.
