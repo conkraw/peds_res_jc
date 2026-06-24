@@ -185,7 +185,7 @@ def add_section_label(slide, x: float, y: float, w: float, label: str, fill: RGB
     r = p.add_run()
     r.text = label
     r.font.bold = True
-    r.font.size = Pt(13)
+    r.font.size = Pt(20)
     r.font.color.rgb = COLOR_DARK
     return shape
 
