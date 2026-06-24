@@ -68,7 +68,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "max_words": 18,
                 "default": "Oxygen Saturation Thresholds in Children With Acute Respiratory Distress",
                 "guide": "Use the article title or a clean teaching title.",
-                "height":70
+                "height":40
             },
             {
                 "key": "teaching_goal",
