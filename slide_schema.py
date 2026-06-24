@@ -123,6 +123,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "max_words_per_line": 12,
                 "default": "A. Restart oxygen to keep SpO₂ ≥92%\nB. Accept SpO₂ ≥90%\nC. Accept SpO₂ ≥88% if the child otherwise looks well\nD. I am unsure",
                 "guide": "One option per line. Usually A–D.",
+                "height":130
             },
             {
                 "key": "facilitator_prompt",
