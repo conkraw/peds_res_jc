@@ -574,6 +574,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 55,
                 "default": "You do not need to understand every statistical detail to learn from an article. Start with the patient problem, the question, the outcome, the main result, the biggest limitation, and the clinical takeaway.",
+                "height":100
             },
         ],
     },
