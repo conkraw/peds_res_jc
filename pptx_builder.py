@@ -478,7 +478,7 @@ def build_month_skill_slide(prs, deck):
     data = deck["month_skill"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, data.get("skill_title", "Month 1 focus skill"))
-    add_section_label(slide, 0.9, 1.25, 3.6, "Find only five things")
+    add_section_label(slide, 0.9, 1.25, 3.6, "Five Questions")
     add_bullets(slide, 0.95, 1.75, 5.3, 2.3, _lines(data.get("reading_questions")), font_size=18, bullet=False)
     add_section_label(slide, 6.8, 1.25, 3.5, "Use this paper as the example")
     add_bullets(slide, 6.85, 1.75, 5.6, 2.3, _lines(data.get("this_paper_summary")), font_size=14, bullet=False)
