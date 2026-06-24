@@ -597,6 +597,11 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
             except Exception as exc:
                 st.error(f"Unexpected GitHub save error: {exc}")
 
+            article_file = st.session_state.get("uploaded_article_pdf")
+
+            if article_file is None:
+                st.warning("No journal article PDF uploaded yet.")
+
 
 def render_github_recovery() -> None:
     with st.expander("Reload draft from GitHub", expanded=False):
@@ -799,13 +804,22 @@ def main() -> None:
             for field in selected_slide["fields"]:
                 render_field(selected_slide["id"], selected_slide_data, field)
             if selected_slide["id"] == "title_goal":
-                st.markdown("### Article Upload")
-                st.file_uploader(
+                st.markdown("### Journal Article Upload")
+            
+                uploaded_article = st.file_uploader(
                     "Upload journal article PDF",
                     type=["pdf"],
                     key="uploaded_article_pdf",
-                    help="Optional. This will be saved to GitHub when you save the draft.",
+                    help="Strongly recommended. This will be saved to GitHub when you save the draft.",
                 )
+            
+                if uploaded_article is None:
+                    st.warning(
+                        "Please upload the journal article PDF before saving. "
+                        "You can continue without it, but the GitHub archive will not include the article."
+                    )
+                else:
+                    st.success(f"Article ready to save: {uploaded_article.name}")
 
         with st.expander("Preview this slide", expanded=False):
             render_slide_preview(selected_slide, selected_slide_data)
