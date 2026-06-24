@@ -104,7 +104,7 @@ def save_draft_to_github(
     presenter_name: str,
     session_title: str,
     app_version: str,
-) -> GitHubSaveResult:
+) -> GitHubResult:
     """Create or update a JSON draft in the configured GitHub repo."""
     cfg = _read_github_config()
 
@@ -158,7 +158,7 @@ def save_draft_to_github(
     result = response.json()
     content = result.get("content", {}) or {}
     commit = result.get("commit", {}) or {}
-    return GitHubSaveResult(
+    return GitHubResult(
         path=content.get("path", path),
         html_url=content.get("html_url", ""),
         commit_sha=commit.get("sha", ""),
@@ -169,7 +169,7 @@ def save_article_to_github(
     original_filename: str,
     presenter_name: str,
     session_title: str,
-) -> GitHubSaveResult:
+) -> GitHubResult:
     """Create or update the uploaded article file in the configured GitHub repo."""
     cfg = _read_github_config()
 
@@ -224,7 +224,7 @@ def save_article_to_github(
     content = result.get("content", {}) or {}
     commit = result.get("commit", {}) or {}
 
-    return GitHubSaveResult(
+    return GitHubResult(
         path=content.get("path", path),
         html_url=content.get("html_url", ""),
         commit_sha=commit.get("sha", ""),
