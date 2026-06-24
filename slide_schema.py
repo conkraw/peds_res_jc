@@ -78,6 +78,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "max_words": 70,
                 "default": "Today is not about mastering every statistical method. Today is about learning how to read a clinical article well enough to answer five core questions.",
                 "guide": "Set expectations for the first session.",
+                "height":40
             },
             {
                 "key": "five_questions",
