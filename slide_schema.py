@@ -59,7 +59,6 @@ SLIDES: List[Dict[str, Any]] = [
                 "max_words": 12,
                 "default": "First Journal Club: OxyKids Trial",
                 "guide": "Short name for the session.",
-                "height":2200
             },
             {
                 "key": "article_title",
@@ -69,6 +68,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "max_words": 18,
                 "default": "Oxygen Saturation Thresholds in Children With Acute Respiratory Distress",
                 "guide": "Use the article title or a clean teaching title.",
+                "height":90
             },
             {
                 "key": "teaching_goal",
