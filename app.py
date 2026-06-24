@@ -20,6 +20,7 @@ from github_storage import (
     list_drafts_from_github,
     load_draft_from_github,
     save_draft_to_github,
+    save_article_to_github
 )
 from slide_schema import SLIDES, make_default_deck
 
@@ -575,7 +576,20 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                     session_title=session_title,
                     app_version=PROJECT_VERSION,
                 )
-                st.success(f"Draft saved to GitHub: {result.path}")
+                
+                messages = [f"Draft saved to GitHub: {result.path}"]
+                
+                article_file = st.session_state.get("uploaded_article_pdf")
+                if article_file is not None:
+                    article_result = save_article_to_github(
+                        article_bytes=article_file.getvalue(),
+                        original_filename=article_file.name,
+                        presenter_name=presenter_name,
+                        session_title=session_title,
+                    )
+                    messages.append(f"Article saved to GitHub: {article_result.path}")
+                
+                st.success("\n".join(messages))
                 if result.html_url:
                     st.caption("You can retrieve it from the drafts repo later and upload it with Load a saved draft JSON.")
             except GitHubDraftSaveError as exc:
@@ -784,6 +798,14 @@ def main() -> None:
             st.markdown("### Edit this slide")
             for field in selected_slide["fields"]:
                 render_field(selected_slide["id"], selected_slide_data, field)
+            if selected_slide["id"] == "title_goal":
+                st.markdown("### Optional article upload")
+                st.file_uploader(
+                    "Upload journal article PDF",
+                    type=["pdf"],
+                    key="uploaded_article_pdf",
+                    help="Optional. This will be saved to GitHub when you save the draft.",
+                )
 
         with st.expander("Preview this slide", expanded=False):
             render_slide_preview(selected_slide, selected_slide_data)
