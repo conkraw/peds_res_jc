@@ -201,6 +201,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 25,
                 "default": "Use an SpO₂ threshold of 88% to start, continue, or wean oxygen.",
+                "height":100
             },
             {
                 "key": "comparison",
@@ -209,6 +210,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 20,
                 "default": "Use an SpO₂ threshold of 92%.",
+                "height":100
             },
             {
                 "key": "outcome",
@@ -217,6 +219,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 32,
                 "default": "Primary outcome: time from admission to meeting predefined discharge criteria.",
+                "height":100
             },
             {
                 "key": "plain_question",
@@ -225,6 +228,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 45,
                 "default": "In children admitted with common acute respiratory illnesses, can we safely use an oxygen saturation threshold of 88% instead of 92% and get them ready for discharge sooner?",
+                "height":100
             },
             {
                 "key": "discussion_question",
@@ -233,6 +237,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "required": True,
                 "max_words": 18,
                 "default": "Is this the right question for our patients?",
+                "height":100
             },
         ],
     },
