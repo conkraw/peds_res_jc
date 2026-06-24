@@ -250,7 +250,8 @@ def render_text_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str
     help_text = field.get("guide")
 
     if field["type"] == "textarea":
-        value = st.text_area(label, key=widget_key, help=help_text, height=130)
+        #value = st.text_area(label, key=widget_key, help=help_text, height=130)
+        value = st.text_area(label,key=widget_key,help=help_text,height=field.get("height", 160))
     else:
         value = st.text_input(label, key=widget_key, help=help_text)
 
