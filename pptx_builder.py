@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-import math 
+import math
 from io import BytesIO
 from typing import Any, Dict, Iterable, List
 
@@ -83,6 +83,52 @@ def estimate_textbox_height(
 
     return max(min_height, min(max_height, estimated))
 
+
+def available_textbox_height(y: float, bottom_margin: float = 0.45) -> float:
+    """Maximum textbox height that stays above the footer/bottom margin."""
+    return max(0.25, SLIDE_H - y - bottom_margin)
+
+
+def dynamic_textbox_height(
+    text: Any,
+    width_inches: float,
+    starting_height: float,
+    font_size: int,
+    y: float,
+    fill: RGBColor | None = None,
+    margin: float = 0.08,
+    min_height: float | None = None,
+    max_height: float | None = None,
+) -> float:
+    """Estimate a practical height for a PowerPoint text box.
+
+    Filled boxes shrink or grow to match the text. Unfilled boxes keep at least
+    their original height but grow if the text needs more room. This keeps
+    highlight boxes from looking too tall while reducing text overflow.
+    """
+    if max_height is None:
+        max_height = available_textbox_height(y)
+    if min_height is None:
+        # For visible filled boxes, allow shrinkage. For invisible text boxes,
+        # preserve the original height unless growth is needed.
+        min_height = 0.28 if fill is not None else starting_height
+
+    padding = max(0.08, margin * 2 + 0.05)
+    estimated = estimate_textbox_height(
+        text,
+        width_inches=width_inches,
+        font_size=font_size,
+        min_height=min_height,
+        max_height=max_height,
+        padding=padding,
+    )
+
+    if fill is not None:
+        return estimated
+
+    return max(starting_height, estimated)
+
+
 def add_textbox(
     slide,
     x: float,
@@ -96,8 +142,33 @@ def add_textbox(
     align=PP_ALIGN.LEFT,
     fill: RGBColor | None = None,
     margin: float = 0.08,
+    auto_height: bool = True,
+    min_height: float | None = None,
+    max_height: float | None = None,
+    vertical_anchor=None,
 ):
-    shape = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
+    """Add a textbox with optional dynamic height.
+
+    auto_height=True makes the shape height respond to text length. This is
+    most helpful for filled callout boxes, where the background should match
+    the amount of text. For crowded slide layouts, pass auto_height=False and
+    calculate y positions manually, as done on the final bottom-line slide.
+    """
+    final_h = h
+    if auto_height:
+        final_h = dynamic_textbox_height(
+            text,
+            width_inches=w,
+            starting_height=h,
+            font_size=font_size,
+            y=y,
+            fill=fill,
+            margin=margin,
+            min_height=min_height,
+            max_height=max_height,
+        )
+
+    shape = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(final_h))
     tf = shape.text_frame
     tf.clear()
     tf.word_wrap = True
@@ -105,7 +176,13 @@ def add_textbox(
     tf.margin_right = Inches(margin)
     tf.margin_top = Inches(margin)
     tf.margin_bottom = Inches(margin)
-    tf.vertical_anchor = MSO_ANCHOR.TOP
+
+    if vertical_anchor is not None:
+        tf.vertical_anchor = vertical_anchor
+    elif fill is not None and align == PP_ALIGN.CENTER:
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+    else:
+        tf.vertical_anchor = MSO_ANCHOR.TOP
 
     p = tf.paragraphs[0]
     p.alignment = align
@@ -144,8 +221,31 @@ def add_bullets(
     items: Iterable[str],
     font_size: int = 18,
     bullet: bool = True,
+    auto_height: bool = True,
 ):
-    shape = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
+    usable_items = [str(item).strip() for item in items if str(item).strip()]
+    if not usable_items:
+        usable_items = [""]
+
+    display_items = []
+    for item in usable_items:
+        if bullet and not item.startswith(("•", "-", "A.", "B.", "C.", "D.", "1.", "2.", "3.", "4.", "5.")):
+            display_items.append(f"• {item}")
+        else:
+            display_items.append(item)
+
+    final_h = h
+    if auto_height:
+        final_h = estimate_textbox_height(
+            "\n".join(display_items),
+            width_inches=w,
+            font_size=font_size,
+            min_height=h,
+            max_height=available_textbox_height(y),
+            padding=0.18,
+        )
+
+    shape = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(final_h))
     tf = shape.text_frame
     tf.clear()
     tf.word_wrap = True
@@ -154,20 +254,12 @@ def add_bullets(
     tf.margin_top = Inches(0.06)
     tf.margin_bottom = Inches(0.06)
 
-    usable_items = [str(item).strip() for item in items if str(item).strip()]
-    if not usable_items:
-        usable_items = [""]
-
-    for i, item in enumerate(usable_items):
+    for i, item in enumerate(display_items):
         p = tf.paragraphs[0] if i == 0 else tf.add_paragraph()
         p.text = item
         p.font.size = Pt(font_size)
         p.font.color.rgb = COLOR_DARK
         p.level = 0
-        # python-pptx doesn't expose bullet toggling consistently across versions;
-        # prefixing is predictable and remains editable.
-        if bullet and not item.startswith(("•", "-", "A.", "B.", "C.", "D.", "1.", "2.", "3.", "4.", "5.")):
-            p.text = f"• {item}"
 
     return shape
 
@@ -299,7 +391,17 @@ def add_simple_bar_chart(slide, title: str, label1: str, value1: float, label2: 
 
 
 def add_hyperlink_textbox(slide, x: float, y: float, w: float, h: float, text: str, url: str, font_size: int = 15):
-    shape = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
+    final_h = dynamic_textbox_height(
+        text,
+        width_inches=w,
+        starting_height=h,
+        font_size=font_size,
+        y=y,
+        fill=None,
+        margin=0.08,
+    )
+
+    shape = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(final_h))
     tf = shape.text_frame
     tf.clear()
     tf.word_wrap = True
@@ -533,6 +635,8 @@ def build_final_bottom_line_slide(prs, deck):
         fill=COLOR_ACCENT_LIGHT,
         align=PP_ALIGN.CENTER,
         margin=0.06,
+        auto_height=False,
+        vertical_anchor=MSO_ANCHOR.MIDDLE,
     )
 
     # Center text vertically inside the blue box
@@ -571,6 +675,8 @@ def build_final_bottom_line_slide(prs, deck):
         color=COLOR_ACCENT,
         align=PP_ALIGN.CENTER,
         margin=0.04,
+        auto_height=False,
+        vertical_anchor=MSO_ANCHOR.MIDDLE,
     )
 
     takehome_box.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
