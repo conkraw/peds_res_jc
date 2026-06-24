@@ -128,7 +128,7 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "facilitator_prompt",
                 "label": "Facilitator prompt",
-                "type": "textarea",
+                "type": "text",
                 "required": False,
                 "max_words": 40,
                 "default": "Most of us have seen this exact situation. The question is whether the number on the monitor is helping the child or prolonging the admission.",
