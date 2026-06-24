@@ -770,7 +770,7 @@ def main() -> None:
             for field in selected_slide["fields"]:
                 render_field(selected_slide["id"], selected_slide_data, field)
 
-        with st.expander("Preview this slide", expanded=True):
+        with st.expander("Preview this slide", expanded=False):
             render_slide_preview(selected_slide, selected_slide_data)
 
     with export_col:
