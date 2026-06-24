@@ -799,7 +799,7 @@ def main() -> None:
             for field in selected_slide["fields"]:
                 render_field(selected_slide["id"], selected_slide_data, field)
             if selected_slide["id"] == "title_goal":
-                st.markdown("### Optional article upload")
+                st.markdown("### Article Upload")
                 st.file_uploader(
                     "Upload journal article PDF",
                     type=["pdf"],
