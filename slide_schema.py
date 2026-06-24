@@ -268,7 +268,7 @@ SLIDES: List[Dict[str, Any]] = [
                 "label": "Who was included",
                 "type": "textarea",
                 "required": True,
-                "max_lines": 4,
+                "max_lines": 6,
                 "max_words_per_line": 20,
                 "default": "Children 6 weeks to 12 years.\nBronchiolitis, lower respiratory tract infection, or viral-induced wheeze.\nRequired oxygen by the standard 92% threshold.",
             },
