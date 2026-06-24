@@ -696,90 +696,115 @@ def render_github_recovery() -> None:
                     st.error(f"Unexpected GitHub load error: {exc}")
 
         drafts = st.session_state.get("github_draft_results", [])
-        if drafts:
-            label_to_path = {friendly_draft_label(d["name"]): d["path"] for d in drafts}
-            option_labels = list(label_to_path.keys())
-            if st.session_state.get("selected_github_draft_label") not in label_to_path:
-                st.session_state.selected_github_draft_label = option_labels[0]
+        if not drafts:
+            return
 
-            selected_label = st.selectbox(
-                "Choose a saved draft",
-                option_labels,
-                key="selected_github_draft_label",
+        label_to_path = {friendly_draft_label(d["name"]): d["path"] for d in drafts}
+        option_labels = list(label_to_path.keys())
+
+        if (
+            st.session_state.get("selected_github_draft_label") not in label_to_path
+            and option_labels
+        ):
+            st.session_state.selected_github_draft_label = option_labels[0]
+
+        selected_label = st.selectbox(
+            "Choose a saved draft",
+            option_labels,
+            key="selected_github_draft_label",
+        )
+
+        selected_path = label_to_path[selected_label]
+        st.caption(f"GitHub path: {selected_path}")
+
+        if st.button("Load selected draft", use_container_width=True):
+            try:
+                loaded = load_draft_from_github(selected_path)
+                apply_loaded_payload_to_session(loaded)
+                st.success(f"Loaded draft: {selected_label}")
+                st.rerun()
+            except GitHubDraftLoadError as exc:
+                st.error(str(exc))
+            except Exception as exc:
+                st.error(f"Unexpected GitHub load error: {exc}")
+
+        # Keep the delete controls OUTSIDE the load button block.
+        # Streamlit reruns after every button click; if this is nested under
+        # "Load selected draft", the danger zone appears for one run and then
+        # disappears immediately.
+        with st.expander("Danger zone: delete selected draft", expanded=False):
+            st.warning(
+                "This will delete the selected JSON draft from GitHub. "
+                "If the draft has a saved article PDF, you can delete that too."
             )
 
-            selected_path = label_to_path[selected_label]
-            st.caption(f"GitHub path: {selected_path}")
+            delete_article_too = st.checkbox(
+                "Also delete the associated article PDF, if one exists",
+                value=True,
+                key="delete_article_too",
+            )
 
-            if st.button("Load selected draft", use_container_width=True):
-                with st.expander("Danger zone: delete selected draft", expanded=False):
-                    st.warning(
-                        "This will delete the selected JSON draft from GitHub. "
-                        "If the draft has a saved article PDF, you can delete that too."
-                    )
-    
-                    delete_article_too = st.checkbox(
-                        "Also delete the associated article PDF, if one exists",
-                        value=True,
-                        key="delete_article_too",
-                    )
-    
-                    delete_passcode = st.text_input(
-                        "Delete passcode",
-                        type="password",
-                        key="delete_passcode",
-                        help="Only mentors/admins with the delete passcode can delete GitHub files.",
-                    )
-    
-                    confirm_delete = st.checkbox(
-                        "I understand this will delete files from the GitHub archive",
-                        key="confirm_delete_github_draft",
-                    )
-    
-                    if st.button("Delete selected draft from GitHub", use_container_width=True):
-                        if not confirm_delete:
-                            st.error("Please check the confirmation box before deleting.")
-                        elif not delete_passcode_is_valid(delete_passcode):
-                            st.error("Incorrect or missing delete passcode.")
-                        else:
-                            try:
-                                delete_result = delete_draft_and_article_from_github(
-                                    draft_path=selected_path,
-                                    delete_article=delete_article_too,
-                                )
-    
-                                deleted = delete_result.get("deleted", [])
-                                warnings = delete_result.get("warnings", [])
-    
-                                if deleted:
-                                    st.success("Deleted:\n" + "\n".join(deleted))
-    
-                                for warning in warnings:
-                                    st.warning(warning)
-    
-                                # Remove deleted item from current search results
-                                st.session_state.github_draft_results = [
-                                    draft for draft in st.session_state.get("github_draft_results", [])
-                                    if draft.get("path") != selected_path
-                                ]
-    
-                                st.rerun()
-    
-                            except GitHubDraftSaveError as exc:
-                                st.error(str(exc))
-                            except GitHubDraftLoadError as exc:
-                                st.error(str(exc))
-                            except Exception as exc:
-                                st.error(f"Unexpected GitHub delete error: {exc}")
-                try:
-                    loaded = load_draft_from_github(selected_path)
-                    apply_loaded_payload_to_session(loaded)
-                    st.success(f"Loaded draft: {selected_label}")
-                    st.rerun()
-                except GitHubDraftLoadError as exc:
-                    st.error(str(exc))
-                except Exception as exc:
-                    st.error(f"Unexpected GitHub load error: {exc}")
+            delete_passcode = st.text_input(
+                "Delete passcode",
+                type="password",
+                key="delete_passcode",
+                help="Only mentors/admins with the delete passcode can delete GitHub files.",
+            )
+
+            confirm_delete = st.checkbox(
+                "I understand this will delete files from the GitHub archive",
+                key="confirm_delete_github_draft",
+            )
+
+            st.caption(f"Selected for deletion: {selected_label}")
+
+            if st.button("Delete selected draft from GitHub", use_container_width=True):
+                if not confirm_delete:
+                    st.error("Please check the confirmation box before deleting.")
+                elif not delete_passcode_is_valid(delete_passcode):
+                    st.error("Incorrect or missing delete passcode.")
+                else:
+                    try:
+                        delete_result = delete_draft_and_article_from_github(
+                            draft_path=selected_path,
+                            delete_article=delete_article_too,
+                        )
+
+                        deleted = delete_result.get("deleted", [])
+                        warnings = delete_result.get("warnings", [])
+
+                        if deleted:
+                            st.success("Deleted:\n" + "\n".join(deleted))
+
+                        for warning in warnings:
+                            st.warning(warning)
+
+                        # Remove deleted item from current search results so it
+                        # disappears from the dropdown after deletion.
+                        st.session_state.github_draft_results = [
+                            draft for draft in st.session_state.get("github_draft_results", [])
+                            if draft.get("path") != selected_path
+                        ]
+
+                        # Clear delete form state after a successful delete.
+                        for key in [
+                            "delete_article_too",
+                            "delete_passcode",
+                            "confirm_delete_github_draft",
+                            "selected_github_draft_label",
+                        ]:
+                            if key in st.session_state:
+                                del st.session_state[key]
+
+                        st.rerun()
+
+                    except GitHubDraftSaveError as exc:
+                        st.error(str(exc))
+                    except GitHubDraftLoadError as exc:
+                        st.error(str(exc))
+                    except Exception as exc:
+                        st.error(f"Unexpected GitHub delete error: {exc}")
+
 
 
 def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
