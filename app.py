@@ -20,7 +20,7 @@ from github_storage import (
     list_drafts_from_github,
     load_draft_from_github,
     save_draft_to_github,
-    save_article_to_github
+    save_article_to_github,
 )
 from slide_schema import SLIDES, make_default_deck
 
