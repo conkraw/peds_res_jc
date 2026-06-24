@@ -11,6 +11,7 @@ import streamlit as st
 
 from pptx_builder import build_powerpoint
 from docx_builder import build_word_summary
+from printable_form_builder import build_printable_planning_form
 from github_storage import (
     GitHubDraftLoadError,
     GitHubDraftSaveError,
@@ -24,7 +25,7 @@ from slide_schema import SLIDES, make_default_deck
 
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.5"
+PROJECT_VERSION = "0.2.6"
 
 
 # -----------------------------
@@ -672,6 +673,15 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
         file_name=f"journal_club_summary_{timestamp}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         disabled=bool(problems),
+        use_container_width=True,
+    )
+
+    printable_form = build_printable_planning_form(deck)
+    st.download_button(
+        "Download printable planning form",
+        data=printable_form,
+        file_name="journal_club_printable_planning_form.docx",
+        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
         use_container_width=True,
     )
 

@@ -205,6 +205,34 @@ The **Download 1-page summary** button creates a compact `.docx` file with:
 - Resident take-home sentence
 
 
-## Version 0.2.5 note
+## Version 0.2.6 note
 
 Slide 4 now uses a stable row-by-row table editor instead of `st.data_editor`. This avoids the confusing behavior where a table cell sometimes had to be deleted or typed twice before the change appeared to stick. Users can still edit the table columns, add rows, remove rows, and export the table to PowerPoint.
+
+
+## Printable planning worksheet
+
+Version 0.2.6 adds a pen-and-paper planning worksheet for residents who prefer to print the article and draft by hand before using the app.
+
+In the app export panel, click:
+
+```text
+Download printable planning form
+```
+
+The worksheet mirrors the Streamlit fields and includes:
+
+- slide-by-slide sections
+- field labels matching the app
+- required/optional status
+- word limits, line limits, and row limits
+- blank writing space
+- a Slide 4 results table template
+
+A standalone copy is also included in this repository:
+
+```text
+journal_club_printable_planning_form.docx
+```
+
+Residents can fill out the paper form, then transfer the final text into the app to generate the standardized PowerPoint and one-page summary.
