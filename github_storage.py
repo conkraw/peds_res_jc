@@ -89,6 +89,7 @@ def make_draft_payload(
     presenter_name: str,
     session_title: str,
     app_version: str,
+    article: Optional[Dict[str, Any]] = None,
 ) -> Dict[str, Any]:
     return {
         "presenter_name": presenter_name.strip(),
@@ -96,6 +97,7 @@ def make_draft_payload(
         "saved_date": date.today().isoformat(),
         "saved_at_utc": datetime.now(timezone.utc).replace(microsecond=0).isoformat(),
         "app_version": app_version,
+        "article": article or {},
         "deck": deck,
     }
 
@@ -105,6 +107,7 @@ def save_draft_to_github(
     presenter_name: str,
     session_title: str,
     app_version: str,
+    article: Optional[Dict[str, Any]] = None,
 ) -> GitHubResult:
     """Create or update a JSON draft in the configured GitHub repo."""
     cfg = _read_github_config()
@@ -122,6 +125,7 @@ def save_draft_to_github(
         presenter_name=presenter_name,
         session_title=session_title,
         app_version=app_version,
+        article=article,
     )
     json_text = json.dumps(payload, indent=2, ensure_ascii=False)
     encoded_content = base64.b64encode(json_text.encode("utf-8")).decode("utf-8")
