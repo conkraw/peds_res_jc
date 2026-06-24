@@ -63,22 +63,20 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "article_title",
                 "label": "Article title / topic",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 18,
                 "default": "Oxygen Saturation Thresholds in Children With Acute Respiratory Distress",
                 "guide": "Use the article title or a clean teaching title.",
-                "height":10
             },
             {
                 "key": "teaching_goal",
                 "label": "Teaching goal",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 70,
                 "default": "Today is not about mastering every statistical method. Today is about learning how to read a clinical article well enough to answer five core questions.",
                 "guide": "Set expectations for the first session.",
-                "height":40
             },
             {
                 "key": "five_questions",
