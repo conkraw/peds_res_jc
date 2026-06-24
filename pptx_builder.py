@@ -508,7 +508,7 @@ def build_final_bottom_line_slide(prs, deck):
     resident_take_home = data.get("resident_take_home")
 
     summary_x = 0.95
-    summary_y = 1.25
+    summary_y = 1.20
     summary_w = 11.45
     summary_font_size = 20
 
@@ -516,12 +516,12 @@ def build_final_bottom_line_slide(prs, deck):
         final_summary,
         width_inches=summary_w,
         font_size=summary_font_size,
-        min_height=0.65,
-        max_height=1.45,
-        padding=0.18,
+        min_height=0.85,
+        max_height=2.05,
+        padding=0.28,
     )
 
-    add_textbox(
+    summary_box = add_textbox(
         slide,
         summary_x,
         summary_y,
@@ -532,11 +532,14 @@ def build_final_bottom_line_slide(prs, deck):
         bold=True,
         fill=COLOR_ACCENT_LIGHT,
         align=PP_ALIGN.CENTER,
-        margin=0.05,
+        margin=0.06,
     )
 
-    # Tighter spacing than before
-    takehome_label_y = summary_y + summary_h + 0.55
+    # Center text vertically inside the blue box
+    summary_box.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+
+    # Move take-home section based on the actual blue-box height
+    takehome_label_y = summary_y + summary_h + 0.45
     takehome_text_y = takehome_label_y + 0.58
 
     add_section_label(
@@ -549,14 +552,14 @@ def build_final_bottom_line_slide(prs, deck):
 
     takehome_h = estimate_textbox_height(
         resident_take_home,
-        width_inches=10.5,
+        width_inches=10.65,
         font_size=22,
         min_height=0.65,
-        max_height=1.25,
-        padding=0.12,
+        max_height=1.35,
+        padding=0.16,
     )
 
-    add_textbox(
+    takehome_box = add_textbox(
         slide,
         1.35,
         takehome_text_y,
@@ -570,8 +573,11 @@ def build_final_bottom_line_slide(prs, deck):
         margin=0.04,
     )
 
+    takehome_box.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+
     add_footer(slide)
     return slide
+
 def build_feedback_slide(prs, deck):
     """Final fixed feedback slide.
 
