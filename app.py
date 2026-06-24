@@ -21,6 +21,7 @@ from github_storage import (
     load_draft_from_github,
     save_draft_to_github,
     save_article_to_github,
+    load_file_bytes_from_github,
 )
 from slide_schema import SLIDES, make_default_deck
 
@@ -804,21 +805,47 @@ def main() -> None:
             for field in selected_slide["fields"]:
                 render_field(selected_slide["id"], selected_slide_data, field)
             if selected_slide["id"] == "title_goal":
-                st.markdown("### Journal Article Upload")
+                st.markdown("### Journal article upload")
+            
+                saved_article = st.session_state.get("saved_article", {}) or {}
+            
+                if saved_article.get("path"):
+                    st.success(
+                        f"Article already saved in GitHub: "
+                        f"{saved_article.get('filename', saved_article.get('path'))}"
+                    )
+                    st.caption(saved_article.get("path"))
+            
+                    try:
+                        article_bytes = load_file_bytes_from_github(saved_article["path"])
+            
+                        st.download_button(
+                            "Download saved article PDF",
+                            data=article_bytes,
+                            file_name=saved_article.get("filename", "journal_article.pdf"),
+                            mime="application/pdf",
+                            use_container_width=True,
+                        )
+                    except Exception as exc:
+                        st.warning(f"Article is listed, but could not be downloaded: {exc}")
             
                 uploaded_article = st.file_uploader(
-                    "Upload journal article PDF",
+                    "Upload or replace journal article PDF",
                     type=["pdf"],
                     key="uploaded_article_pdf",
-                    help="Strongly recommended. This will be saved to GitHub when you save the draft.",
+                    help=(
+                        "Strongly recommended. If this draft already has an article saved, "
+                        "you do not need to re-upload unless replacing it."
+                    ),
                 )
             
-                if uploaded_article is None:
+                if uploaded_article is None and not saved_article.get("path"):
                     st.warning(
                         "Please upload the journal article PDF before saving. "
+                        "You can continue without it, but the GitHub archive will not include the article."
                     )
-                else:
-                    st.success(f"Article ready to save: {uploaded_article.name}")
+                elif uploaded_article is not None:
+                    st.success(f"New article ready to save: {uploaded_article.name}")
 
         with st.expander("Preview this slide", expanded=False):
             render_slide_preview(selected_slide, selected_slide_data)
