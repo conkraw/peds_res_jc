@@ -197,7 +197,7 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "intervention",
                 "label": "Intervention",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 25,
                 "default": "Use an SpO₂ threshold of 88% to start, continue, or wean oxygen.",
@@ -206,7 +206,7 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "comparison",
                 "label": "Comparison",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 20,
                 "default": "Use an SpO₂ threshold of 92%.",
@@ -215,7 +215,7 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "outcome",
                 "label": "Outcome",
-                "type": "textarea",
+                "type": "text",
                 "required": True,
                 "max_words": 32,
                 "default": "Primary outcome: time from admission to meeting predefined discharge criteria.",
