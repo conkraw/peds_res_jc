@@ -69,12 +69,28 @@ def normalize_deck(deck_or_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]
     return default
 
 def delete_passcode_is_valid(passcode: str) -> bool:
-    try:
-        expected = str(st.secrets.get("admin", {}).get("delete_passcode", "")).strip()
-    except Exception:
-        expected = ""
+    """Return True when the entered delete passcode matches Streamlit secrets.
 
-    return bool(expected) and str(passcode or "").strip() == expected
+    Supports either:
+    [admin]
+    delete_passcode = "..."
+
+    or the older location:
+    [github]
+    delete_passcode = "..."
+    """
+    provided = str(passcode or "").strip()
+    if not provided:
+        return False
+
+    expected_values: List[str] = []
+    try:
+        expected_values.append(str(st.secrets.get("admin", {}).get("delete_passcode", "")).strip())
+        expected_values.append(str(st.secrets.get("github", {}).get("delete_passcode", "")).strip())
+    except Exception:
+        expected_values = []
+
+    return any(expected and provided == expected for expected in expected_values)
 
 def initialize_state() -> None:
     if "deck" not in st.session_state:
@@ -88,6 +104,8 @@ def initialize_state() -> None:
     # remembers and surfaces the saved article after a draft is reloaded.
     if "saved_article" not in st.session_state:
         st.session_state.saved_article = {}
+    if "archive_panel" not in st.session_state:
+        st.session_state.archive_panel = ""
 
 
 def nav_label(slide: Dict[str, Any]) -> str:
@@ -551,8 +569,10 @@ def apply_loaded_payload_to_session(loaded: Dict[str, Any]) -> None:
 
 
 def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
-    with st.expander("Save Draft To Archive", expanded=False):
-        #st.caption("")
+    """Render the save-to-archive form after the user clicks the archive button."""
+    with st.container(border=True):
+        st.markdown("#### Save Draft To Archive")
+        st.caption("Save the editable draft JSON and the article PDF, if one is attached.")
 
         presenter_name = st.text_input(
             "Presenter name",
@@ -594,9 +614,24 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
         elif article_file is not None:
             st.success(f"Article PDF ready to save: {article_file.name}")
         elif saved_article.get("path"):
-            st.success(f"Existing article will be kept: {saved_article.get('filename', saved_article.get('path'))}")
+            st.success(
+                f"Existing article will be kept: "
+                f"{saved_article.get('filename', saved_article.get('path'))}"
+            )
 
-        if st.button("Save draft to Archive", use_container_width=True):
+        button_cols = st.columns([1, 1])
+        with button_cols[0]:
+            save_clicked = st.button(
+                "Save draft to Archive",
+                key="save_draft_to_archive_button",
+                use_container_width=True,
+            )
+        with button_cols[1]:
+            if st.button("Cancel", key="cancel_save_archive_button", use_container_width=True):
+                st.session_state.archive_panel = ""
+                st.rerun()
+
+        if save_clicked:
             if not presenter_name.strip():
                 st.error("Please enter the presenter name before saving.")
                 return
@@ -607,7 +642,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
             try:
                 article_metadata = saved_article
 
-                # 1. Save article first if a new one was uploaded
+                # 1. Save article first if a new one was uploaded.
                 if article_file is not None:
                     article_result = save_article_to_github(
                         article_bytes=article_file.getvalue(),
@@ -625,7 +660,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
 
                     st.session_state.saved_article = article_metadata
 
-                # 2. Save JSON draft after article metadata exists
+                # 2. Save JSON draft after article metadata exists.
                 result = save_draft_to_github(
                     deck=deck,
                     presenter_name=presenter_name,
@@ -634,31 +669,31 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                     article=article_metadata,
                 )
 
-                #messages = [f"Draft saved to Archive: {result.path}"]
-                messages = [f"Draft saved to Archive."]
+                messages = ["Draft saved to Archive."]
 
                 if article_file is not None:
-                    #messages.append(f"Article saved to Archive: {article_metadata['path']}")
-                    messages.append(f"Article saved to Archive.")
+                    messages.append("Article saved to Archive.")
                 elif article_metadata.get("path"):
-                    messages.append(f"Existing article kept: {article_metadata['path']}")
+                    messages.append("Existing article kept in Archive.")
                 else:
                     messages.append("No article PDF uploaded.")
 
                 st.success("\n".join(messages))
 
                 if result.html_url:
-                    st.caption(
-                        "You can retrieve it from the drafts repo later and reload it from GitHub."
-                    )
+                    st.caption("You can reload it later from the Archive.")
 
             except GitHubDraftSaveError as exc:
                 st.error(str(exc))
             except Exception as exc:
                 st.error(f"Unexpected GitHub save error: {exc}")
 
+
 def render_github_recovery() -> None:
-    with st.expander("Reload Saved Draft From Archive", expanded=False):
+    """Render the reload/delete archive form after the user clicks the archive button."""
+    with st.container(border=True):
+        st.markdown("#### Reload Saved Draft From Archive")
+
         if github_backup_is_configured():
             st.success(github_config_status_message())
         else:
@@ -672,7 +707,19 @@ def render_github_recovery() -> None:
             help="Searches filenames saved with this presenter name.",
         )
 
-        if st.button("Find saved drafts", use_container_width=True):
+        search_cols = st.columns([1, 1])
+        with search_cols[0]:
+            find_clicked = st.button(
+                "Find saved drafts",
+                key="find_saved_drafts_button",
+                use_container_width=True,
+            )
+        with search_cols[1]:
+            if st.button("Cancel", key="cancel_reload_archive_button", use_container_width=True):
+                st.session_state.archive_panel = ""
+                st.rerun()
+
+        if find_clicked:
             if not recover_name.strip():
                 st.error("Please enter a presenter name to search.")
             else:
@@ -708,9 +755,8 @@ def render_github_recovery() -> None:
         )
 
         selected_path = label_to_path[selected_label]
-        #st.caption(f"GitHub path: {selected_path}")
 
-        if st.button("Load selected draft", use_container_width=True):
+        if st.button("Load selected draft", key="load_selected_archive_draft_button", use_container_width=True):
             try:
                 loaded = load_draft_from_github(selected_path)
                 apply_loaded_payload_to_session(loaded)
@@ -721,10 +767,7 @@ def render_github_recovery() -> None:
             except Exception as exc:
                 st.error(f"Unexpected GitHub load error: {exc}")
 
-        # Keep the delete controls OUTSIDE the load button block.
-        # Streamlit reruns after every button click; if this is nested under
-        # "Load selected draft", the danger zone appears for one run and then
-        # disappears immediately.
+        # The delete controls remain behind a separate safety expander.
         with st.expander("Danger zone: delete selected draft", expanded=False):
             st.warning(
                 "This will delete the selected draft from Archive. "
@@ -751,7 +794,7 @@ def render_github_recovery() -> None:
 
             st.caption(f"Selected for deletion: {selected_label}")
 
-            if st.button("Delete selected draft from Archive", use_container_width=True):
+            if st.button("Delete selected draft from Archive", key="delete_selected_archive_draft_button", use_container_width=True):
                 if not confirm_delete:
                     st.error("Please check the confirmation box before deleting.")
                 elif not delete_passcode_is_valid(delete_passcode):
@@ -772,14 +815,11 @@ def render_github_recovery() -> None:
                         for warning in warnings:
                             st.warning(warning)
 
-                        # Remove deleted item from current search results so it
-                        # disappears from the dropdown after deletion.
                         st.session_state.github_draft_results = [
                             draft for draft in st.session_state.get("github_draft_results", [])
                             if draft.get("path") != selected_path
                         ]
 
-                        # Clear delete form state after a successful delete.
                         for key in [
                             "delete_article_too",
                             "delete_passcode",
@@ -799,6 +839,30 @@ def render_github_recovery() -> None:
                         st.error(f"Unexpected GitHub delete error: {exc}")
 
 
+def render_archive_controls(deck: Dict[str, Dict[str, Any]]) -> None:
+    """Use persistent buttons instead of expanders for archive actions."""
+    if "archive_panel" not in st.session_state:
+        st.session_state.archive_panel = ""
+
+    if st.button(
+        "Save Draft To Archive",
+        key="open_save_archive_panel_button",
+        use_container_width=True,
+    ):
+        st.session_state.archive_panel = "save"
+
+    if st.button(
+        "Reload Saved Draft From Archive",
+        key="open_reload_archive_panel_button",
+        use_container_width=True,
+    ):
+        st.session_state.archive_panel = "reload"
+
+    panel = st.session_state.get("archive_panel", "")
+    if panel == "save":
+        render_github_backup(deck)
+    elif panel == "reload":
+        render_github_recovery()
 
 def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     problems = validate_deck(deck)
@@ -843,8 +907,7 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     #st.download_button("Download editable draft JSON",data=draft_json,file_name=f"journal_club_draft_{timestamp}.json",mime="application/json",use_container_width=True)
 
     st.divider()
-    render_github_backup(deck)
-    render_github_recovery()
+    render_archive_controls(deck)
 
 
 # -----------------------------
