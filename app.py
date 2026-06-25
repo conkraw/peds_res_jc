@@ -111,6 +111,8 @@ def initialize_state() -> None:
         st.session_state.archive_id = ""
     if "archive_path" not in st.session_state:
         st.session_state.archive_path = ""
+    if "advanced_panel" not in st.session_state:
+        st.session_state.advanced_panel = ""
 
 
 def nav_label(slide: Dict[str, Any]) -> str:
@@ -1006,40 +1008,63 @@ def main() -> None:
 
         st.divider()
 
-        with st.expander("Advanced: drafts/reset", expanded=False):
-            uploaded = st.file_uploader("Load a saved draft JSON", type=["json"])
-            if uploaded is not None:
-                if st.button("Load uploaded draft", use_container_width=True):
-                    try:
-                        loaded = json.loads(uploaded.getvalue().decode("utf-8"))
-                        apply_loaded_payload_to_session(loaded)
-                        st.success("Draft loaded.")
-                    except Exception as exc:
-                        st.error(f"Could not load draft: {exc}")
+        if st.button(
+            "Advanced drafts/reset",
+            key="open_advanced_panel_button",
+            use_container_width=True,
+        ):
+            st.session_state.advanced_panel = (
+                "" if st.session_state.get("advanced_panel") == "advanced" else "advanced"
+            )
 
-            if st.button("Reset to OxyKids example", use_container_width=True):
-                st.session_state.deck = make_default_deck()
-                st.session_state.saved_article = {}
-                st.session_state.archive_id = ""
-                clear_widget_state()
-                st.success("Reset complete.")
+        if st.session_state.get("advanced_panel") == "advanced":
+            with st.container(border=True):
+                st.markdown("**Advanced drafts/reset**")
 
-            if st.button("Clear all fields", use_container_width=True):
-                st.session_state.deck = make_default_deck()
-                st.session_state.saved_article = {}
-                st.session_state.archive_id = ""
-            
-                for slide in SLIDES:
-                    for field in slide["fields"]:
-                        field_key = field["key"]
-                        if field.get("type") == "table":
-                            st.session_state.deck[slide["id"]][field_key] = []
-                        else:
-                            st.session_state.deck[slide["id"]][field_key] = ""
-            
-                clear_widget_state()
-                st.success("All fields cleared.")
-                st.rerun()
+                uploaded = st.file_uploader(
+                    "Load a saved draft JSON",
+                    type=["json"],
+                    key="advanced_uploaded_draft_json",
+                )
+                if uploaded is not None:
+                    if st.button("Load uploaded draft", key="load_uploaded_json_button", use_container_width=True):
+                        try:
+                            loaded = json.loads(uploaded.getvalue().decode("utf-8"))
+                            apply_loaded_payload_to_session(loaded)
+                            st.success("Draft loaded.")
+                        except Exception as exc:
+                            st.error(f"Could not load draft: {exc}")
+
+                if st.button("Reset to OxyKids example", key="reset_oxykids_button", use_container_width=True):
+                    st.session_state.deck = make_default_deck()
+                    st.session_state.saved_article = {}
+                    st.session_state.archive_id = ""
+                    st.session_state.archive_path = ""
+                    clear_widget_state()
+                    st.success("Reset complete.")
+                    st.rerun()
+
+                if st.button("Clear all fields", key="clear_all_fields_button", use_container_width=True):
+                    st.session_state.deck = make_default_deck()
+                    st.session_state.saved_article = {}
+                    st.session_state.archive_id = ""
+                    st.session_state.archive_path = ""
+                
+                    for slide in SLIDES:
+                        for field in slide["fields"]:
+                            field_key = field["key"]
+                            if field.get("type") == "table":
+                                st.session_state.deck[slide["id"]][field_key] = []
+                            else:
+                                st.session_state.deck[slide["id"]][field_key] = ""
+                
+                    clear_widget_state()
+                    st.success("All fields cleared.")
+                    st.rerun()
+
+                if st.button("Close advanced panel", key="close_advanced_panel_button", use_container_width=True):
+                    st.session_state.advanced_panel = ""
+                    st.rerun()
 
     selected_slide = next(slide for slide in SLIDES if slide["id"] == st.session_state.selected_slide_id)
     selected_slide_data = st.session_state.deck[selected_slide["id"]]
