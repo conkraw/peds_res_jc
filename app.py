@@ -596,7 +596,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
         elif saved_article.get("path"):
             st.success(f"Existing article will be kept: {saved_article.get('filename', saved_article.get('path'))}")
 
-        if st.button("Save draft to GitHub", use_container_width=True):
+        if st.button("Save draft to Archive", use_container_width=True):
             if not presenter_name.strip():
                 st.error("Please enter the presenter name before saving.")
                 return
