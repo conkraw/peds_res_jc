@@ -942,7 +942,7 @@ def main() -> None:
                         f"Article already saved in Archive: "
                         f"{saved_article.get('filename', saved_article.get('path'))}"
                     )
-                    st.caption(saved_article.get("path"))
+                    #st.caption(saved_article.get("path"))
             
                     try:
                         article_bytes = load_file_bytes_from_github(saved_article["path"])
