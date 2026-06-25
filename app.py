@@ -551,7 +551,7 @@ def apply_loaded_payload_to_session(loaded: Dict[str, Any]) -> None:
 
 
 def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
-    with st.expander("Save Draft to Archive", expanded=False):
+    with st.expander("Save Draft To Archive", expanded=False):
         #st.caption("")
 
         presenter_name = st.text_input(
