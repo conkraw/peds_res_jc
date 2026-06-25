@@ -726,7 +726,7 @@ def render_github_recovery() -> None:
         # disappears immediately.
         with st.expander("Danger zone: delete selected draft", expanded=False):
             st.warning(
-                "This will delete the selected JSON draft from GitHub. "
+                "This will delete the selected draft from Archive. "
                 "If the draft has a saved article PDF, you can delete that too."
             )
 
@@ -740,17 +740,17 @@ def render_github_recovery() -> None:
                 "Delete passcode",
                 type="password",
                 key="delete_passcode",
-                help="Only mentors/admins with the delete passcode can delete GitHub files.",
+                help="Only mentors/admins with the delete passcode can delete Archive files.",
             )
 
             confirm_delete = st.checkbox(
-                "I understand this will delete files from the GitHub archive",
+                "I understand this will delete files from the Archive",
                 key="confirm_delete_github_draft",
             )
 
             st.caption(f"Selected for deletion: {selected_label}")
 
-            if st.button("Delete selected draft from GitHub", use_container_width=True):
+            if st.button("Delete selected draft from Archive", use_container_width=True):
                 if not confirm_delete:
                     st.error("Please check the confirmation box before deleting.")
                 elif not delete_passcode_is_valid(delete_passcode):
