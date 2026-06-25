@@ -1021,19 +1021,15 @@ def main() -> None:
             with st.container(border=True):
                 st.markdown("**Advanced drafts/reset**")
 
-                uploaded = st.file_uploader(
-                    "Load a saved draft JSON",
-                    type=["json"],
-                    key="advanced_uploaded_draft_json",
-                )
-                if uploaded is not None:
-                    if st.button("Load uploaded draft", key="load_uploaded_json_button", use_container_width=True):
-                        try:
-                            loaded = json.loads(uploaded.getvalue().decode("utf-8"))
-                            apply_loaded_payload_to_session(loaded)
-                            st.success("Draft loaded.")
-                        except Exception as exc:
-                            st.error(f"Could not load draft: {exc}")
+                #uploaded = st.file_uploader("Load a saved draft JSON",type=["json"],key="advanced_uploaded_draft_json")
+                #if uploaded is not None:
+                #    if st.button("Load uploaded draft", key="load_uploaded_json_button", use_container_width=True):
+                #        try:
+                #            loaded = json.loads(uploaded.getvalue().decode("utf-8"))
+                #            apply_loaded_payload_to_session(loaded)
+                #            st.success("Draft loaded.")
+                #        except Exception as exc:
+                #            st.error(f"Could not load draft: {exc}")
 
                 if st.button("Reset to OxyKids example", key="reset_oxykids_button", use_container_width=True):
                     st.session_state.deck = make_default_deck()
