@@ -72,9 +72,10 @@ SLIDES: List[Dict[str, Any]] = [
             {
                 "key": "teaching_goal",
                 "label": "Teaching goal",
-                "type": "text",
+                "type": "textarea",
                 "required": True,
                 "max_words": 100,
+                "height":100
                 "default": "Today is not about mastering every statistical method. Today is about learning how to read a clinical article well enough to answer five core questions.",
                 "guide": "Set expectations for the first session.",
             },
