@@ -634,7 +634,8 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                     article=article_metadata,
                 )
 
-                messages = [f"Draft saved to GitHub: {result.path}"]
+                #messages = [f"Draft saved to Archive: {result.path}"]
+                messages = [f"Draft saved to Archive"]
 
                 if article_file is not None:
                     messages.append(f"Article saved to GitHub: {article_metadata['path']}")
