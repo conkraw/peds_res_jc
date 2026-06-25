@@ -939,7 +939,7 @@ def main() -> None:
             
                 if saved_article.get("path"):
                     st.success(
-                        f"Article already saved in GitHub: "
+                        f"Article already saved in Archive: "
                         f"{saved_article.get('filename', saved_article.get('path'))}"
                     )
                     st.caption(saved_article.get("path"))
