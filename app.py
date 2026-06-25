@@ -22,6 +22,7 @@ from github_storage import (
     load_file_bytes_from_github,
     save_draft_to_github,
     save_article_to_github,
+    generate_archive_id,
     delete_draft_and_article_from_github,
 
 )
@@ -106,6 +107,8 @@ def initialize_state() -> None:
         st.session_state.saved_article = {}
     if "archive_panel" not in st.session_state:
         st.session_state.archive_panel = ""
+    if "archive_id" not in st.session_state:
+        st.session_state.archive_id = ""
 
 
 def nav_label(slide: Dict[str, Any]) -> str:
@@ -536,13 +539,27 @@ def default_session_title(deck: Dict[str, Dict[str, Any]]) -> str:
 
 
 def friendly_draft_label(filename: str) -> str:
-    """Turn 2026-06-22_jane-smith_oxykids-trial.json into a readable option."""
+    """Turn an archive filename into a readable dropdown option.
+
+    Newer filenames end with a unique archive ID, such as:
+    2026-06-25_jane-smith_ouch-trial_a1b2c3d4e5f6.json
+    """
     stem = str(filename or "").removesuffix(".json")
     parts = stem.split("_", 2)
     if len(parts) == 3:
         saved_date, presenter_slug, title_slug = parts
+        archive_id = ""
+        title_part = title_slug
+
+        maybe_title, sep, maybe_id = title_slug.rpartition("_")
+        if sep and re.fullmatch(r"[a-f0-9]{8,24}", maybe_id):
+            title_part = maybe_title
+            archive_id = maybe_id
+
         presenter = presenter_slug.replace("-", " ").title()
-        title = title_slug.replace("-", " ").title()
+        title = title_part.replace("-", " ").title()
+        if archive_id:
+            return f"{saved_date} — {title} ({presenter}) · ID {archive_id}"
         return f"{saved_date} — {title} ({presenter})"
     return filename
 
@@ -561,9 +578,15 @@ def apply_loaded_payload_to_session(loaded: Dict[str, Any]) -> None:
     st.session_state.deck = normalize_deck(loaded)
 
     article_metadata: Dict[str, Any] = {}
-    if isinstance(loaded, dict) and isinstance(loaded.get("article"), dict):
-        article_metadata = loaded.get("article", {}) or {}
+    archive_id = ""
+    if isinstance(loaded, dict):
+        archive_id = str(loaded.get("archive_id", "") or "").strip()
+        if isinstance(loaded.get("article"), dict):
+            article_metadata = loaded.get("article", {}) or {}
+            archive_id = archive_id or str(article_metadata.get("archive_id", "") or "").strip()
+
     st.session_state.saved_article = article_metadata
+    st.session_state.archive_id = archive_id
 
     clear_widget_state()
 
@@ -599,6 +622,12 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
             key="github_session_title",
             help="Used for the saved JSON filename. You can keep the default.",
         )
+
+        existing_archive_id = str(st.session_state.get("archive_id", "") or "").strip()
+        if existing_archive_id:
+            st.caption(f"Archive ID for this draft: {existing_archive_id}")
+        else:
+            st.caption("A unique Archive ID will be created when this draft is saved.")
 
         if github_backup_is_configured():
             st.success(github_config_status_message())
@@ -640,7 +669,16 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                 return
 
             try:
-                article_metadata = saved_article
+                archive_id = (
+                    str(st.session_state.get("archive_id", "") or "").strip()
+                    or str(saved_article.get("archive_id", "") or "").strip()
+                    or generate_archive_id()
+                )
+                st.session_state.archive_id = archive_id
+
+                article_metadata = dict(saved_article or {})
+                if article_metadata:
+                    article_metadata["archive_id"] = archive_id
 
                 # 1. Save article first if a new one was uploaded.
                 if article_file is not None:
@@ -649,9 +687,11 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                         original_filename=article_file.name,
                         presenter_name=presenter_name,
                         session_title=session_title,
+                        archive_id=archive_id,
                     )
 
                     article_metadata = {
+                        "archive_id": archive_id,
                         "filename": article_file.name,
                         "path": article_result.path,
                         "html_url": article_result.html_url,
@@ -667,6 +707,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                     session_title=session_title,
                     app_version=PROJECT_VERSION,
                     article=article_metadata,
+                    archive_id=archive_id,
                 )
 
                 messages = ["Draft saved to Archive."]
@@ -843,6 +884,8 @@ def render_archive_controls(deck: Dict[str, Dict[str, Any]]) -> None:
     """Use persistent buttons instead of expanders for archive actions."""
     if "archive_panel" not in st.session_state:
         st.session_state.archive_panel = ""
+    if "archive_id" not in st.session_state:
+        st.session_state.archive_id = ""
 
     if st.button(
         "Save Draft To Archive",
@@ -963,12 +1006,14 @@ def main() -> None:
             if st.button("Reset to OxyKids example", use_container_width=True):
                 st.session_state.deck = make_default_deck()
                 st.session_state.saved_article = {}
+                st.session_state.archive_id = ""
                 clear_widget_state()
                 st.success("Reset complete.")
 
             if st.button("Clear all fields", use_container_width=True):
                 st.session_state.deck = make_default_deck()
                 st.session_state.saved_article = {}
+                st.session_state.archive_id = ""
             
                 for slide in SLIDES:
                     for field in slide["fields"]:
@@ -1005,7 +1050,9 @@ def main() -> None:
                         f"Article already saved in Archive: "
                         f"{saved_article.get('filename', saved_article.get('path'))}"
                     )
-                    #st.caption(saved_article.get("path"))
+                    saved_archive_id = saved_article.get("archive_id") or st.session_state.get("archive_id", "")
+                    if saved_archive_id:
+                        st.caption(f"Archive ID: {saved_archive_id}")
             
                     try:
                         article_bytes = load_file_bytes_from_github(saved_article["path"])
