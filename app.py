@@ -590,10 +590,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
         saved_article = st.session_state.get("saved_article", {}) or {}
 
         if article_file is None and not saved_article.get("path"):
-            st.warning(
-                "No journal article PDF uploaded yet. The draft can still be saved, "
-                "but the GitHub archive will not include the article."
-            )
+            st.warning("No journal article PDF uploaded yet.")
         elif article_file is not None:
             st.success(f"Article PDF ready to save: {article_file.name}")
         elif saved_article.get("path"):
