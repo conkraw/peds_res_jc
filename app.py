@@ -707,7 +707,7 @@ def render_github_recovery() -> None:
         )
 
         selected_path = label_to_path[selected_label]
-        st.caption(f"GitHub path: {selected_path}")
+        #st.caption(f"GitHub path: {selected_path}")
 
         if st.button("Load selected draft", use_container_width=True):
             try:
