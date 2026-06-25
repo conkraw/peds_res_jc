@@ -838,13 +838,7 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     )
 
     draft_json = json.dumps(deck, indent=2, ensure_ascii=False).encode("utf-8")
-    st.download_button(
-        "Download editable draft JSON",
-        data=draft_json,
-        file_name=f"journal_club_draft_{timestamp}.json",
-        mime="application/json",
-        use_container_width=True,
-    )
+    #st.download_button("Download editable draft JSON",data=draft_json,file_name=f"journal_club_draft_{timestamp}.json",mime="application/json",use_container_width=True)
 
     st.divider()
     render_github_backup(deck)
