@@ -137,6 +137,7 @@ def make_draft_payload(
     app_version: str,
     article: Optional[Dict[str, Any]] = None,
     archive_id: str | None = None,
+    archive_path: str | None = None,
 ) -> Dict[str, Any]:
     archive_id = normalize_archive_id(archive_id) or generate_archive_id()
     article_payload = dict(article or {})
@@ -145,6 +146,7 @@ def make_draft_payload(
 
     return {
         "archive_id": archive_id,
+        "archive_path": str(archive_path or "").strip().lstrip("/"),
         "presenter_name": presenter_name.strip(),
         "session_title": session_title.strip(),
         "saved_date": date.today().isoformat(),
@@ -162,16 +164,27 @@ def save_draft_to_github(
     app_version: str,
     article: Optional[Dict[str, Any]] = None,
     archive_id: str | None = None,
+    existing_path: str | None = None,
 ) -> GitHubResult:
-    """Create or update a JSON draft in the configured GitHub repo."""
+    """Create or update a JSON draft in the configured GitHub repo.
+
+    If existing_path is provided, the existing GitHub filename is reused.
+    That prevents a reloaded draft from creating a new dated filename when it
+    is edited and saved on a later date.
+    """
     cfg = _read_github_config()
 
     if not github_backup_is_configured():
         raise GitHubDraftSaveError(github_config_status_message())
 
     archive_id = normalize_archive_id(archive_id) or generate_archive_id()
-    filename = build_draft_filename(presenter_name, session_title, archive_id=archive_id)
-    path = f"{cfg['base_path']}/{filename}"
+    clean_existing_path = str(existing_path or "").strip().lstrip("/")
+    if clean_existing_path:
+        path = clean_existing_path
+        filename = path.rsplit("/", 1)[-1]
+    else:
+        filename = build_draft_filename(presenter_name, session_title, archive_id=archive_id)
+        path = f"{cfg['base_path']}/{filename}"
     api_path = quote(path, safe="/")
     api_url = f"https://api.github.com/repos/{cfg['repo']}/contents/{api_path}"
 
@@ -182,6 +195,7 @@ def save_draft_to_github(
         app_version=app_version,
         article=article,
         archive_id=archive_id,
+        archive_path=path,
     )
     json_text = json.dumps(payload, indent=2, ensure_ascii=False)
     encoded_content = base64.b64encode(json_text.encode("utf-8")).decode("utf-8")
@@ -232,6 +246,7 @@ def save_article_to_github(
     presenter_name: str,
     session_title: str,
     archive_id: str | None = None,
+    existing_path: str | None = None,
 ) -> GitHubResult:
     """Create or update the uploaded article PDF in the configured GitHub repo.
 
@@ -246,12 +261,17 @@ def save_article_to_github(
         raise GitHubDraftSaveError(github_config_status_message())
 
     archive_id = normalize_archive_id(archive_id) or generate_archive_id()
-    base_filename = build_draft_filename(presenter_name, session_title, archive_id=archive_id).replace(".json", "")
-    extension = original_filename.rsplit(".", 1)[-1].lower() if "." in original_filename else "pdf"
-    extension = slugify(extension).replace("-", "") or "pdf"
+    clean_existing_path = str(existing_path or "").strip().lstrip("/")
+    if clean_existing_path:
+        path = clean_existing_path
+        filename = path.rsplit("/", 1)[-1]
+    else:
+        base_filename = build_draft_filename(presenter_name, session_title, archive_id=archive_id).replace(".json", "")
+        extension = original_filename.rsplit(".", 1)[-1].lower() if "." in original_filename else "pdf"
+        extension = slugify(extension).replace("-", "") or "pdf"
 
-    filename = f"{base_filename}_article.{extension}"
-    path = f"{cfg['base_path']}/articles/{filename}"
+        filename = f"{base_filename}_article.{extension}"
+        path = f"{cfg['base_path']}/articles/{filename}"
 
     api_path = quote(path, safe="/")
     api_url = f"https://api.github.com/repos/{cfg['repo']}/contents/{api_path}"

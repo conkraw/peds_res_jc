@@ -109,6 +109,8 @@ def initialize_state() -> None:
         st.session_state.archive_panel = ""
     if "archive_id" not in st.session_state:
         st.session_state.archive_id = ""
+    if "archive_path" not in st.session_state:
+        st.session_state.archive_path = ""
 
 
 def nav_label(slide: Dict[str, Any]) -> str:
@@ -564,7 +566,7 @@ def friendly_draft_label(filename: str) -> str:
     return filename
 
 
-def apply_loaded_payload_to_session(loaded: Dict[str, Any]) -> None:
+def apply_loaded_payload_to_session(loaded: Dict[str, Any], source_path: str = "") -> None:
     """Load a draft payload into the active app session and refresh widgets.
 
     Do not directly assign Streamlit widget keys here. This function can be
@@ -579,14 +581,17 @@ def apply_loaded_payload_to_session(loaded: Dict[str, Any]) -> None:
 
     article_metadata: Dict[str, Any] = {}
     archive_id = ""
+    archive_path = str(source_path or "").strip().lstrip("/")
     if isinstance(loaded, dict):
         archive_id = str(loaded.get("archive_id", "") or "").strip()
+        archive_path = archive_path or str(loaded.get("archive_path", "") or "").strip().lstrip("/")
         if isinstance(loaded.get("article"), dict):
             article_metadata = loaded.get("article", {}) or {}
             archive_id = archive_id or str(article_metadata.get("archive_id", "") or "").strip()
 
     st.session_state.saved_article = article_metadata
     st.session_state.archive_id = archive_id
+    st.session_state.archive_path = archive_path
 
     clear_widget_state()
 
@@ -624,7 +629,10 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
         )
 
         existing_archive_id = str(st.session_state.get("archive_id", "") or "").strip()
-        if existing_archive_id:
+        existing_archive_path = str(st.session_state.get("archive_path", "") or "").strip().lstrip("/")
+        if existing_archive_path:
+            st.caption(f"This will update the existing archive file: {existing_archive_path}")
+        elif existing_archive_id:
             st.caption(f"Archive ID for this draft: {existing_archive_id}")
         else:
             st.caption("A unique Archive ID will be created when this draft is saved.")
@@ -674,6 +682,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                     or str(saved_article.get("archive_id", "") or "").strip()
                     or generate_archive_id()
                 )
+                archive_path = str(st.session_state.get("archive_path", "") or "").strip().lstrip("/")
                 st.session_state.archive_id = archive_id
 
                 article_metadata = dict(saved_article or {})
@@ -688,6 +697,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                         presenter_name=presenter_name,
                         session_title=session_title,
                         archive_id=archive_id,
+                        existing_path=str(saved_article.get("path", "") or "").strip().lstrip("/"),
                     )
 
                     article_metadata = {
@@ -708,7 +718,9 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                     app_version=PROJECT_VERSION,
                     article=article_metadata,
                     archive_id=archive_id,
+                    existing_path=archive_path,
                 )
+                st.session_state.archive_path = result.path
 
                 messages = ["Draft saved to Archive."]
 
@@ -800,7 +812,7 @@ def render_github_recovery() -> None:
         if st.button("Load selected draft", key="load_selected_archive_draft_button", use_container_width=True):
             try:
                 loaded = load_draft_from_github(selected_path)
-                apply_loaded_payload_to_session(loaded)
+                apply_loaded_payload_to_session(loaded, source_path=selected_path)
                 st.success(f"Loaded draft: {selected_label}")
                 st.rerun()
             except GitHubDraftLoadError as exc:
@@ -886,6 +898,8 @@ def render_archive_controls(deck: Dict[str, Dict[str, Any]]) -> None:
         st.session_state.archive_panel = ""
     if "archive_id" not in st.session_state:
         st.session_state.archive_id = ""
+    if "archive_path" not in st.session_state:
+        st.session_state.archive_path = ""
 
     if st.button(
         "Save Draft To Archive",
