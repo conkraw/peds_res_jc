@@ -659,11 +659,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                 st.error(f"Unexpected GitHub save error: {exc}")
 
 def render_github_recovery() -> None:
-    with st.expander("Reload draft from GitHub", expanded=False):
-        st.caption(
-            "Find a saved JSON draft in the private GitHub drafts repo and load it back into the app."
-        )
-
+    with st.expander("Reload Saved Draft From Archive", expanded=False):
         if github_backup_is_configured():
             st.success(github_config_status_message())
         else:
