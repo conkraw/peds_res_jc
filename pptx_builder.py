@@ -439,13 +439,82 @@ def build_clinical_bottom_line_slide(prs, deck):
     data = deck["clinical_bottom_line"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "What Should We Do?")
-    add_textbox(slide, 0.75, 1.1, 11.9, 0.85, data.get("bottom_line"), font_size=18, bold=True, fill=COLOR_ACCENT_LIGHT, align=PP_ALIGN.CENTER)
+
+    # Top clinical interpretation.
+    add_textbox(
+        slide,
+        0.75,
+        1.1,
+        11.9,
+        0.85,
+        data.get("bottom_line"),
+        font_size=18,
+        bold=True,
+        fill=COLOR_ACCENT_LIGHT,
+        align=PP_ALIGN.CENTER,
+    )
+
+    # Evidence-for and caution columns.
     add_section_label(slide, 0.9, 2.25, 2.6, "I Trust It Because")
     add_bullets(slide, 0.95, 2.75, 5.55, 1.55, _lines(data.get("trust_bullets")), font_size=15)
     add_section_label(slide, 6.85, 2.25, 2.7, "I Am Cautious Because")
     add_bullets(slide, 6.9, 2.75, 5.55, 1.9, _lines(data.get("caution_bullets")), font_size=14)
-    add_textbox(slide, 0.85, 5.25, 11.6, 0.65, data.get("practice_statement"), font_size=16, bold=True, fill=COLOR_LIGHT_GRAY, align=PP_ALIGN.CENTER)
-    add_textbox(slide, 0.85, 6.15, 11.6, 0.55, data.get("family_explanation"), font_size=13, align=PP_ALIGN.CENTER)
+
+    # Bottom translation section.
+    # These small labels make it clear that the first statement is for resident
+    # clinical action and the second is a family-facing explanation.
+    add_textbox(
+        slide,
+        0.85,
+        4.88,
+        11.6,
+        0.24,
+        "What I Would Do Clinically",
+        font_size=11,
+        bold=True,
+        color=COLOR_ACCENT,
+        align=PP_ALIGN.LEFT,
+        margin=0.0,
+    )
+    add_textbox(
+        slide,
+        0.85,
+        5.15,
+        11.6,
+        0.62,
+        data.get("practice_statement"),
+        font_size=15,
+        bold=True,
+        fill=COLOR_LIGHT_GRAY,
+        align=PP_ALIGN.CENTER,
+    )
+
+    add_textbox(
+        slide,
+        0.85,
+        5.93,
+        11.6,
+        0.24,
+        "How I Would Explain This To A Family",
+        font_size=11,
+        bold=True,
+        color=COLOR_ACCENT,
+        align=PP_ALIGN.LEFT,
+        margin=0.0,
+    )
+    family_box = add_textbox(
+        slide,
+        0.85,
+        6.20,
+        11.6,
+        0.58,
+        data.get("family_explanation"),
+        font_size=12,
+        fill=COLOR_WARNING_LIGHT,
+        align=PP_ALIGN.CENTER,
+    )
+    family_box.text_frame.vertical_anchor = MSO_ANCHOR.MIDDLE
+
     add_footer(slide)
     return slide
 
