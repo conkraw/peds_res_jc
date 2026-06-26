@@ -62,7 +62,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "article_title",
-                "label": "Article title / topic",
+                "label": "Article Title / Topic",
                 "type": "text",
                 "required": True,
                 "max_words": 30,
@@ -71,7 +71,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "teaching_goal",
-                "label": "Teaching goal",
+                "label": "Teaching Goal",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -81,7 +81,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "five_questions",
-                "label": "Five reading questions",
+                "label": "Five Reading Questions",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 5,
