@@ -924,12 +924,12 @@ def extract_archive_index_row(draft_info: Dict[str, Any], payload: Dict[str, Any
     return {
         "Saved date": payload.get("saved_date", ""),
         "Presenter": payload.get("presenter_name", ""),
-        "Session title": payload.get("session_title") or title_slide.get("session_title", ""),
+        #"Session title": payload.get("session_title") or title_slide.get("session_title", ""),
         "Article title": title_slide.get("article_title", ""),
         "Monthly skill": month_skill_slide.get("skill_title", ""),
-        "Article PDF": article_status,
-        "Archive ID": payload.get("archive_id") or article.get("archive_id", ""),
-        "Draft path": draft_info.get("path", ""),
+        #"Article PDF": article_status,
+        #"Archive ID": payload.get("archive_id") or article.get("archive_id", ""),
+        #"Draft path": draft_info.get("path", ""),
     }
 
 
