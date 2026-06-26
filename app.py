@@ -1082,7 +1082,7 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
 
     docx_bytes = build_word_summary(deck)
     st.download_button(
-        "Download 1-page summary",
+        "Download 1-Page Summary",
         data=docx_bytes,
         file_name=f"journal_club_summary_{timestamp}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1092,7 +1092,7 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
 
     printable_form = build_printable_planning_form(deck)
     st.download_button(
-        "Download printable planning form",
+        "Download Printable Planning Form",
         data=printable_form,
         file_name="journal_club_printable_planning_form.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
@@ -1146,7 +1146,7 @@ def main() -> None:
         st.divider()
 
         if st.button(
-            "Advanced drafts/reset",
+            "Advanced Drafts/Reset",
             key="open_advanced_panel_button",
             use_container_width=True,
         ):
@@ -1168,7 +1168,7 @@ def main() -> None:
                 #        except Exception as exc:
                 #            st.error(f"Could not load draft: {exc}")
 
-                if st.button("Reset to OxyKids example", key="reset_oxykids_button", use_container_width=True):
+                if st.button("Reset to OxyKids Example", key="reset_oxykids_button", use_container_width=True):
                     st.session_state.deck = make_default_deck()
                     st.session_state.saved_article = {}
                     st.session_state.archive_id = ""
@@ -1177,7 +1177,7 @@ def main() -> None:
                     st.success("Reset complete.")
                     st.rerun()
 
-                if st.button("Clear all fields", key="clear_all_fields_button", use_container_width=True):
+                if st.button("Clear All Fields", key="clear_all_fields_button", use_container_width=True):
                     st.session_state.deck = make_default_deck()
                     st.session_state.saved_article = {}
                     st.session_state.archive_id = ""
@@ -1195,7 +1195,7 @@ def main() -> None:
                     st.success("All fields cleared.")
                     st.rerun()
 
-                if st.button("Close advanced panel", key="close_advanced_panel_button", use_container_width=True):
+                if st.button("Close Advanced Panel", key="close_advanced_panel_button", use_container_width=True):
                     st.session_state.advanced_panel = ""
                     st.rerun()
 
