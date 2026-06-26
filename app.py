@@ -536,7 +536,7 @@ def render_validation_panel(deck: Dict[str, Dict[str, Any]]) -> None:
     st.caption(f"{filled}/{total} visible fields completed")
 
     if problems:
-        with st.expander(f"Validation warnings ({len(problems)})", expanded=False):
+        with st.expander(f"Validation Warnings ({len(problems)})", expanded=False):
             for problem in problems:
                 st.write(f"- {problem}")
     else:
