@@ -113,6 +113,12 @@ def initialize_state() -> None:
         st.session_state.archive_path = ""
     if "advanced_panel" not in st.session_state:
         st.session_state.advanced_panel = ""
+    if "archive_index_rows" not in st.session_state:
+        st.session_state.archive_index_rows = []
+    if "archive_index_warnings" not in st.session_state:
+        st.session_state.archive_index_warnings = []
+    if "archive_index_loaded" not in st.session_state:
+        st.session_state.archive_index_loaded = False
 
 
 def nav_label(slide: Dict[str, Any]) -> str:
@@ -666,7 +672,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                 use_container_width=True,
             )
         with button_cols[1]:
-            if st.button("Close Save Archive Panel", key="cancel_save_archive_button", use_container_width=True):
+            if st.button("Cancel", key="cancel_save_archive_button", use_container_width=True):
                 st.session_state.archive_panel = ""
                 st.rerun()
 
@@ -770,7 +776,7 @@ def render_github_recovery() -> None:
                 use_container_width=True,
             )
         with search_cols[1]:
-            if st.button("Close Reload Archive Panel", key="cancel_reload_archive_button", use_container_width=True):
+            if st.button("Cancel", key="cancel_reload_archive_button", use_container_width=True):
                 st.session_state.archive_panel = ""
                 st.rerun()
 
@@ -884,6 +890,10 @@ def render_github_recovery() -> None:
                             if key in st.session_state:
                                 del st.session_state[key]
 
+                        st.session_state.archive_index_loaded = False
+                        st.session_state.archive_index_rows = []
+                        st.session_state.archive_index_warnings = []
+
                         st.rerun()
 
                     except GitHubDraftSaveError as exc:
@@ -893,6 +903,124 @@ def render_github_recovery() -> None:
                     except Exception as exc:
                         st.error(f"Unexpected GitHub delete error: {exc}")
 
+
+
+def extract_archive_index_row(draft_info: Dict[str, Any], payload: Dict[str, Any]) -> Dict[str, Any]:
+    """Pull mentor-facing index fields out of one saved draft payload."""
+    payload = payload if isinstance(payload, dict) else {}
+    deck = payload.get("deck", payload) if isinstance(payload, dict) else {}
+    deck = deck if isinstance(deck, dict) else {}
+
+    title_slide = deck.get("title_goal", {}) if isinstance(deck.get("title_goal", {}), dict) else {}
+    month_skill_slide = deck.get("month_skill", {}) if isinstance(deck.get("month_skill", {}), dict) else {}
+    article = payload.get("article", {}) if isinstance(payload.get("article", {}), dict) else {}
+
+    article_status = "No"
+    if article.get("filename"):
+        article_status = str(article.get("filename"))
+    elif article.get("path"):
+        article_status = "Yes"
+
+    return {
+        "Saved date": payload.get("saved_date", ""),
+        "Presenter": payload.get("presenter_name", ""),
+        "Session title": payload.get("session_title") or title_slide.get("session_title", ""),
+        "Article title": title_slide.get("article_title", ""),
+        "Monthly skill": month_skill_slide.get("skill_title", ""),
+        "Article PDF": article_status,
+        "Archive ID": payload.get("archive_id") or article.get("archive_id", ""),
+        "Draft path": draft_info.get("path", ""),
+    }
+
+
+def load_archive_index_rows() -> tuple[List[Dict[str, Any]], List[str]]:
+    """Load every saved draft JSON and build an archive index table."""
+    drafts = list_drafts_from_github("")
+    rows: List[Dict[str, Any]] = []
+    warnings: List[str] = []
+
+    for draft in drafts:
+        draft_path = str(draft.get("path", "") or "")
+        if not draft_path:
+            continue
+        try:
+            payload = load_draft_from_github(draft_path)
+            rows.append(extract_archive_index_row(draft, payload))
+        except Exception as exc:
+            warnings.append(f"Could not read {draft_path}: {exc}")
+
+    return rows, warnings
+
+
+def render_archive_index() -> None:
+    """Render a mentor-facing table of saved journal club archive contents."""
+    with st.container(border=True):
+        st.markdown("#### Archive Index")
+        st.caption("Lists saved drafts with presenter, article title, monthly skill, and article PDF status.")
+
+        if github_backup_is_configured():
+            st.success(github_config_status_message())
+        else:
+            st.info(github_config_status_message())
+            st.caption("Add Streamlit secrets first. See README.md for setup instructions.")
+
+        action_cols = st.columns([1, 1])
+        with action_cols[0]:
+            refresh_clicked = st.button(
+                "Refresh Archive Index",
+                key="refresh_archive_index_button",
+                use_container_width=True,
+            )
+        with action_cols[1]:
+            if st.button("Cancel", key="cancel_archive_index_button", use_container_width=True):
+                st.session_state.archive_panel = ""
+                st.rerun()
+
+        if refresh_clicked or not st.session_state.get("archive_index_loaded", False):
+            try:
+                with st.spinner("Building archive index..."):
+                    rows, warnings = load_archive_index_rows()
+                st.session_state.archive_index_rows = rows
+                st.session_state.archive_index_warnings = warnings
+                st.session_state.archive_index_loaded = True
+                if rows:
+                    st.success(f"Found {len(rows)} archived draft(s).")
+                else:
+                    st.info("No archived drafts found.")
+            except GitHubDraftLoadError as exc:
+                st.error(str(exc))
+            except Exception as exc:
+                st.error(f"Unexpected archive index error: {exc}")
+
+        rows = st.session_state.get("archive_index_rows", []) or []
+        warnings = st.session_state.get("archive_index_warnings", []) or []
+
+        if rows:
+            df = pd.DataFrame(rows)
+            preferred_columns = [
+                "Saved date",
+                "Presenter",
+                "Article title",
+                "Monthly skill",
+                "Session title",
+                "Article PDF",
+                "Archive ID",
+                "Draft path",
+            ]
+            df = df[[col for col in preferred_columns if col in df.columns]]
+            st.dataframe(df, hide_index=True, use_container_width=True)
+
+            csv_bytes = df.to_csv(index=False).encode("utf-8-sig")
+            st.download_button(
+                "Download Archive Index CSV",
+                data=csv_bytes,
+                file_name="journal_club_archive_index.csv",
+                mime="text/csv",
+                use_container_width=True,
+            )
+
+        for warning in warnings:
+            st.warning(warning)
 
 def render_archive_controls(deck: Dict[str, Dict[str, Any]]) -> None:
     """Use persistent buttons instead of expanders for archive actions."""
@@ -917,11 +1045,20 @@ def render_archive_controls(deck: Dict[str, Dict[str, Any]]) -> None:
     ):
         st.session_state.archive_panel = "reload"
 
+    if st.button(
+        "View Archive Index",
+        key="open_archive_index_panel_button",
+        use_container_width=True,
+    ):
+        st.session_state.archive_panel = "index"
+
     panel = st.session_state.get("archive_panel", "")
     if panel == "save":
         render_github_backup(deck)
     elif panel == "reload":
         render_github_recovery()
+    elif panel == "index":
+        render_archive_index()
 
 def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     problems = validate_deck(deck)
@@ -1021,15 +1158,19 @@ def main() -> None:
             with st.container(border=True):
                 st.markdown("**Advanced drafts/reset**")
 
-                #uploaded = st.file_uploader("Load a saved draft JSON",type=["json"],key="advanced_uploaded_draft_json")
-                #if uploaded is not None:
-                #    if st.button("Load uploaded draft", key="load_uploaded_json_button", use_container_width=True):
-                #        try:
-                #            loaded = json.loads(uploaded.getvalue().decode("utf-8"))
-                #            apply_loaded_payload_to_session(loaded)
-                #            st.success("Draft loaded.")
-                #        except Exception as exc:
-                #            st.error(f"Could not load draft: {exc}")
+                uploaded = st.file_uploader(
+                    "Load a saved draft JSON",
+                    type=["json"],
+                    key="advanced_uploaded_draft_json",
+                )
+                if uploaded is not None:
+                    if st.button("Load uploaded draft", key="load_uploaded_json_button", use_container_width=True):
+                        try:
+                            loaded = json.loads(uploaded.getvalue().decode("utf-8"))
+                            apply_loaded_payload_to_session(loaded)
+                            st.success("Draft loaded.")
+                        except Exception as exc:
+                            st.error(f"Could not load draft: {exc}")
 
                 if st.button("Reset to OxyKids example", key="reset_oxykids_button", use_container_width=True):
                     st.session_state.deck = make_default_deck()
