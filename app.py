@@ -1064,7 +1064,7 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     problems = validate_deck(deck)
     timestamp = datetime.now().strftime("%Y%m%d")
 
-    include_notes = st.checkbox("Include facilitator notes appendix slide",value=st.session_state.include_facilitator_notes,key="include_facilitator_notes")
+    #include_notes = st.checkbox("Include facilitator notes appendix slide",value=st.session_state.include_facilitator_notes,key="include_facilitator_notes")
 
     st.divider()
     render_archive_controls(deck)
