@@ -1070,6 +1070,9 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
         key="include_facilitator_notes",
     )
 
+    st.divider()
+    render_archive_controls(deck)
+    
     pptx_bytes = build_powerpoint(deck, include_facilitator_notes=include_notes)
     st.download_button(
         "Download PowerPoint",
@@ -1102,8 +1105,8 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     draft_json = json.dumps(deck, indent=2, ensure_ascii=False).encode("utf-8")
     #st.download_button("Download editable draft JSON",data=draft_json,file_name=f"journal_club_draft_{timestamp}.json",mime="application/json",use_container_width=True)
 
-    st.divider()
-    render_archive_controls(deck)
+    #st.divider()
+    #render_archive_controls(deck)
 
 
 # -----------------------------
