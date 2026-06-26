@@ -672,7 +672,7 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                 use_container_width=True,
             )
         with button_cols[1]:
-            if st.button("Cancel", key="cancel_save_archive_button", use_container_width=True):
+            if st.button("Close Save Archive Panel", key="cancel_save_archive_button", use_container_width=True):
                 st.session_state.archive_panel = ""
                 st.rerun()
 
@@ -776,7 +776,7 @@ def render_github_recovery() -> None:
                 use_container_width=True,
             )
         with search_cols[1]:
-            if st.button("Cancel", key="cancel_reload_archive_button", use_container_width=True):
+            if st.button("Close Reload Archive Panel", key="cancel_reload_archive_button", use_container_width=True):
                 st.session_state.archive_panel = ""
                 st.rerun()
 
