@@ -972,7 +972,7 @@ def render_archive_index() -> None:
                 use_container_width=True,
             )
         with action_cols[1]:
-            if st.button("Cancel", key="cancel_archive_index_button", use_container_width=True):
+            if st.button("Close Archive Index Panel", key="cancel_archive_index_button", use_container_width=True):
                 st.session_state.archive_panel = ""
                 st.rerun()
 
