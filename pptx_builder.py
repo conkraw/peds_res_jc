@@ -341,7 +341,7 @@ def build_title_goal_slide(prs, deck):
     add_textbox(slide, 0.75, 0.6, 11.8, 0.55, data.get("session_title"), font_size=34, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     add_textbox(slide, 1.0, 1.28, 11.3, 0.85, data.get("article_title"), font_size=24, bold=True, align=PP_ALIGN.CENTER)
     add_textbox(slide, 1.25, 2.45, 10.9, 0.95, data.get("teaching_goal"), font_size=20, align=PP_ALIGN.CENTER, fill=COLOR_ACCENT_LIGHT)
-    add_section_label(slide, 2.65, 4.0, 8.0, "Five questions residents should answer")
+    add_section_label(slide, 2.65, 4.0, 8.0, "Five Questions Residents Should Answer")
     add_bullets(slide, 2.6, 4.55, 8.5, 1.55, _lines(data.get("five_questions")), font_size=17, bullet=False)
     add_footer(slide)
     return slide
@@ -350,7 +350,7 @@ def build_title_goal_slide(prs, deck):
 def build_opening_case_slide(prs, deck):
     data = deck["opening_case"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, "Opening patient case")
+    add_title(slide, "Opening Patient Case")
     add_textbox(slide, 0.75, 1.18, 11.9, 1.5, data.get("case_stem"), font_size=20, fill=COLOR_LIGHT_GRAY)
     add_textbox(slide, 0.75, 2.95, 11.9, 0.45, data.get("question"), font_size=22, bold=True, color=COLOR_ACCENT)
     add_bullets(slide, 1.0, 3.55, 6.4, 1.6, _lines(data.get("answer_choices")), font_size=19, bullet=False)
@@ -362,9 +362,9 @@ def build_opening_case_slide(prs, deck):
 def build_patient_problem_slide(prs, deck):
     data = deck["patient_problem"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, "The patient problem")
+    add_title(slide, "The Patient Problem")
     add_textbox(slide, 0.75, 1.15, 11.9, 0.75, data.get("headline"), font_size=25, bold=True, color=COLOR_ACCENT)
-    add_section_label(slide, 0.8, 2.18, 3.2, "Clinical problem")
+    add_section_label(slide, 0.8, 2.18, 3.2, "Clinical Problem")
     add_bullets(slide, 0.95, 2.72, 11.5, 2.05, _lines(data.get("problem_bullets")), font_size=20)
     add_textbox(slide, 0.85, 5.45, 11.6, 0.75, data.get("discussion_question"), font_size=21, bold=True, fill=COLOR_ACCENT_LIGHT, align=PP_ALIGN.CENTER)
     add_footer(slide)
@@ -374,8 +374,8 @@ def build_patient_problem_slide(prs, deck):
 def build_pico_slide(prs, deck):
     data = deck["pico"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, "The study question", "PICO")
-    labels = [("Patient/problem", "patient"), ("Intervention", "intervention"), ("Comparison", "comparison"), ("Outcome", "outcome")]
+    add_title(slide, "The Study Question", "PICO")
+    labels = [("Patient/Problem", "patient"), ("Intervention", "intervention"), ("Comparison", "comparison"), ("Outcome", "outcome")]
     y = 1.35
     for label, key in labels:
         add_section_label(slide, 0.75, y, 2.2, label)
@@ -390,13 +390,13 @@ def build_pico_slide(prs, deck):
 def build_study_design_slide(prs, deck):
     data = deck["study_design"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, "What they did")
+    add_title(slide, "What They Did")
     add_textbox(slide, 0.75, 1.12, 11.9, 0.55, data.get("design"), font_size=24, bold=True, color=COLOR_ACCENT)
-    add_section_label(slide, 0.75, 1.95, 3.0, "What that means")
+    add_section_label(slide, 0.75, 1.95, 3.0, "What That Means")
     add_bullets(slide, 0.9, 2.42, 5.7, 2.2, _lines(data.get("design_bullets")), font_size=14)
-    add_section_label(slide, 6.95, 1.95, 2.7, "Who was included")
+    add_section_label(slide, 6.95, 1.95, 2.7, "Who Was Included")
     add_bullets(slide, 7.05, 2.42, 5.2, 1.25, _lines(data.get("included")), font_size=14)
-    add_section_label(slide, 6.95, 3.9, 2.7, "Important exclusions")
+    add_section_label(slide, 6.95, 3.9, 2.7, "Important Exclusions")
     add_bullets(slide, 7.05, 4.35, 5.2, 1.55, _lines(data.get("excluded")), font_size=13)
     add_textbox(slide, 0.85, 6.25, 11.6, 0.5, data.get("discussion_question"), font_size=17, bold=True, fill=COLOR_ACCENT_LIGHT, align=PP_ALIGN.CENTER)
     add_footer(slide)
@@ -406,7 +406,7 @@ def build_study_design_slide(prs, deck):
 def build_main_result_slide(prs, deck):
     data = deck["main_result"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, "What they found")
+    add_title(slide, "What They Found")
     add_textbox(slide, 0.75, 1.05, 11.9, 0.45, data.get("main_result"), font_size=24, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     visual_type = data.get("visual_type", "Results table")
 
@@ -438,11 +438,11 @@ def build_main_result_slide(prs, deck):
 def build_clinical_bottom_line_slide(prs, deck):
     data = deck["clinical_bottom_line"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, "What should we do?")
+    add_title(slide, "What Should We Do?")
     add_textbox(slide, 0.75, 1.1, 11.9, 0.85, data.get("bottom_line"), font_size=18, bold=True, fill=COLOR_ACCENT_LIGHT, align=PP_ALIGN.CENTER)
-    add_section_label(slide, 0.9, 2.25, 2.6, "I trust it because")
+    add_section_label(slide, 0.9, 2.25, 2.6, "I Trust It Because")
     add_bullets(slide, 0.95, 2.75, 5.55, 1.55, _lines(data.get("trust_bullets")), font_size=15)
-    add_section_label(slide, 6.85, 2.25, 2.7, "I am cautious because")
+    add_section_label(slide, 6.85, 2.25, 2.7, "I Am Cautious Because")
     add_bullets(slide, 6.9, 2.75, 5.55, 1.9, _lines(data.get("caution_bullets")), font_size=14)
     add_textbox(slide, 0.85, 5.25, 11.6, 0.65, data.get("practice_statement"), font_size=16, bold=True, fill=COLOR_LIGHT_GRAY, align=PP_ALIGN.CENTER)
     add_textbox(slide, 0.85, 6.15, 11.6, 0.55, data.get("family_explanation"), font_size=13, align=PP_ALIGN.CENTER)
@@ -455,11 +455,11 @@ def build_paper_framework_slide(prs, deck):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "PAPER framework discussion")
     boxes = [
-        ("P", "Patient problem", data.get("patient_problem_answer")),
-        ("A", "Article type", data.get("article_type_answer")),
-        ("P", "Primary question/outcome", data.get("primary_question_answer")),
-        ("E", "Evidence quality", data.get("evidence_quality_answer")),
-        ("R", "Real-world use", data.get("real_world_answer")),
+        ("P", "Patient Problem", data.get("patient_problem_answer")),
+        ("A", "Article Type", data.get("article_type_answer")),
+        ("P", "Primary Question/Outcome", data.get("primary_question_answer")),
+        ("E", "Evidence Quality", data.get("evidence_quality_answer")),
+        ("R", "Real-World Use", data.get("real_world_answer")),
     ]
     coords = [(0.75, 1.2), (5.0, 1.2), (9.25, 1.2), (2.85, 4.05), (7.1, 4.05)]
     for (letter, title, body), (x, y) in zip(boxes, coords):
@@ -480,7 +480,7 @@ def build_month_skill_slide(prs, deck):
     add_title(slide, data.get("skill_title", "Month 1 focus skill"))
     add_section_label(slide, 0.9, 1.25, 3.6, "Five Questions")
     add_bullets(slide, 0.95, 1.75, 5.3, 2.3, _lines(data.get("reading_questions")), font_size=18, bullet=False)
-    add_section_label(slide, 6.8, 1.25, 3.5, "Use this paper as the example")
+    add_section_label(slide, 6.8, 1.25, 3.5, "Use This Paper As An Example")
     add_bullets(slide, 6.85, 1.75, 5.6, 2.3, _lines(data.get("this_paper_summary")), font_size=14, bullet=False)
     add_textbox(slide, 0.85, 5.4, 11.6, 0.9, data.get("teaching_pearl"), font_size=18, bold=True, fill=COLOR_ACCENT_LIGHT, align=PP_ALIGN.CENTER)
     add_footer(slide)
@@ -490,9 +490,9 @@ def build_month_skill_slide(prs, deck):
 def build_apply_back_slide(prs, deck):
     data = deck["apply_back"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, "Apply back to the patient")
+    add_title(slide, "Apply Back To The Patient")
     add_textbox(slide, 0.85, 1.35, 11.6, 0.8, data.get("return_question"), font_size=24, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
-    add_section_label(slide, 3.0, 2.7, 7.3, "Closing vote")
+    add_section_label(slide, 3.0, 2.7, 7.3, "Closing Vote")
     add_bullets(slide, 3.15, 3.22, 7.3, 1.4, _lines(data.get("vote_options")), font_size=20, bullet=False)
     add_textbox(slide, 0.85, 5.55, 11.6, 0.8, data.get("facilitator_synthesis"), font_size=17, bold=True, fill=COLOR_WARNING_LIGHT, align=PP_ALIGN.CENTER)
     add_footer(slide)
@@ -502,7 +502,7 @@ def build_apply_back_slide(prs, deck):
 def build_final_bottom_line_slide(prs, deck):
     data = deck["final_bottom_line"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, "Final bottom line")
+    add_title(slide, "Final Bottom Line")
 
     final_summary = data.get("final_summary")
     resident_take_home = data.get("resident_take_home")
