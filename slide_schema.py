@@ -541,7 +541,7 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "month_skill",
         "label": "Monthly Focus Skill",
-        "export_title": "Month 1 focus skill",
+        "export_title": "Monthly Focus Skill",
         "fields": [
             {
                 "key": "skill_title",
