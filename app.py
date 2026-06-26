@@ -1066,11 +1066,12 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
 
     #include_notes = st.checkbox("Include facilitator notes appendix slide",value=st.session_state.include_facilitator_notes,key="include_facilitator_notes")
 
-    st.divider()
     render_archive_controls(deck)
     st.divider()
     
-    pptx_bytes = build_powerpoint(deck, include_facilitator_notes=include_notes)
+    #pptx_bytes = build_powerpoint(deck, include_facilitator_notes=include_notes)
+    pptx_bytes = build_powerpoint(deck, include_facilitator_notes=True)
+    
     st.download_button(
         "Download PowerPoint",
         data=pptx_bytes,
