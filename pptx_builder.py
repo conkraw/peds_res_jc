@@ -191,24 +191,50 @@ def add_section_label(slide, x: float, y: float, w: float, label: str, fill: RGB
 
 
 def add_small_label(slide, x: float, y: float, w: float, label: str, color: RGBColor = COLOR_ACCENT):
-    """Add a small, unobtrusive label above a callout box.
+    """Add a visible, compact label above a callout box.
 
-    These labels help residents and audience members understand the purpose of
-    each highlighted statement without adding a large visual element to the slide.
+    The earlier label was just tiny text on a white background, so it could look
+    like it was missing after export. This version draws a small editable
+    rounded-rectangle "pill" label. The label width is based on the label text,
+    not the full callout width, so it stays readable without cluttering slides.
     """
-    return add_textbox(
-        slide,
-        x,
-        y,
-        w,
-        0.22,
-        label,
-        font_size=10,
-        bold=True,
-        color=color,
-        align=PP_ALIGN.LEFT,
-        margin=0.0,
+    label_text = _safe_text(label).strip()
+    if not label_text:
+        return None
+
+    # Approximate width in inches: enough for the label, but never wider than
+    # the space the caller gave us. This keeps labels compact and consistent.
+    label_w = min(float(w), max(1.35, min(4.8, 0.12 * len(label_text) + 0.35)))
+    label_h = 0.30
+
+    shape = slide.shapes.add_shape(
+        MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE,
+        Inches(x),
+        Inches(y),
+        Inches(label_w),
+        Inches(label_h),
     )
+    shape.fill.solid()
+    shape.fill.fore_color.rgb = COLOR_ACCENT_LIGHT
+    shape.line.color.rgb = COLOR_ACCENT_LIGHT
+
+    tf = shape.text_frame
+    tf.clear()
+    tf.word_wrap = False
+    tf.margin_left = Inches(0.06)
+    tf.margin_right = Inches(0.06)
+    tf.margin_top = Inches(0.02)
+    tf.margin_bottom = Inches(0.02)
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.CENTER
+    r = p.add_run()
+    r.text = label_text
+    r.font.bold = True
+    r.font.size = Pt(10.5)
+    r.font.color.rgb = color
+    return shape
 
 
 def add_footer(slide, text: str = "Journal Club Builder"):
@@ -470,14 +496,15 @@ def build_clinical_bottom_line_slide(prs, deck):
     add_title(slide, "What Should We Do?")
 
     # Top clinical interpretation.
+    add_small_label(slide, 0.75, 0.94, 11.9, "Clinical Bottom Line")
     add_textbox(
         slide,
         0.75,
-        1.1,
+        1.20,
         11.9,
-        0.85,
+        0.75,
         data.get("bottom_line"),
-        font_size=18,
+        font_size=17,
         bold=True,
         fill=COLOR_ACCENT_LIGHT,
         align=PP_ALIGN.CENTER,
