@@ -10,7 +10,7 @@ import pandas as pd
 import streamlit as st
 
 from pptx_builder import build_powerpoint
-from docx_builder import build_word_summary
+from docx_builder import build_word_summary, build_review_text_docx
 from printable_form_builder import build_printable_planning_form
 from github_storage import (
     GitHubDraftLoadError,
@@ -1168,6 +1168,20 @@ def main() -> None:
                 #            st.success("Draft loaded.")
                 #        except Exception as exc:
                 #            st.error(f"Could not load draft: {exc}")
+
+                st.caption(
+                    "Mentor review export creates an editable DOCX with the slide text, reviewer guidelines, and Track Changes enabled."
+                )
+                review_docx_bytes = build_review_text_docx(st.session_state.deck)
+                st.download_button(
+                    "Download PowerPoint Text Review DOCX",
+                    data=review_docx_bytes,
+                    file_name=f"journal_club_text_review_{datetime.now().strftime('%Y%m%d')}.docx",
+                    mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    use_container_width=True,
+                )
+
+                st.divider()
 
                 if st.button("Reset to OxyKids Example", key="reset_oxykids_button", use_container_width=True):
                     st.session_state.deck = make_default_deck()
