@@ -156,35 +156,35 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     r.bold = True
     r.font.size = Pt(10)
 
-    _add_heading(doc, "Session purpose")
+    _add_heading(doc, "Session Purpose")
     _add_small_text(doc, _safe_text(title_data.get("teaching_goal", "")))
 
-    _add_heading(doc, "Article in one view")
+    _add_heading(doc, "Article In One View")
     _add_compact_table(
         doc,
         [
-            ("Patient/problem", _safe_text(pico.get("patient", ""))),
-            ("Study question", _safe_text(pico.get("plain_question", ""))),
-            ("Study design", _safe_text(design.get("design", ""))),
-            ("Primary outcome", _safe_text(pico.get("outcome", ""))),
+            ("Patient/Problem", _safe_text(pico.get("patient", ""))),
+            ("Study Question", _safe_text(pico.get("plain_question", ""))),
+            ("Study Design", _safe_text(design.get("design", ""))),
+            ("Primary Outcome", _safe_text(pico.get("outcome", ""))),
         ],
     )
 
-    _add_heading(doc, "Main result")
+    _add_heading(doc, "Main Result")
     _add_small_text(doc, _safe_text(result.get("main_result", "")), "Headline")
     _add_small_text(doc, _safe_text(result.get("plain_result", "")), "Plain language")
 
-    _add_heading(doc, "Clinical bottom line")
+    _add_heading(doc, "Clinical Bottom Line")
     _add_small_text(doc, _safe_text(bottom.get("bottom_line", "")))
     _add_small_text(doc, _safe_text(bottom.get("practice_statement", "")), "Practice implication")
 
-    _add_heading(doc, "Why trust it / why be cautious")
-    _add_small_text(doc, "Trust factors", None)
+    _add_heading(doc, "Why Trust It / Why Be Cautious")
+    _add_small_text(doc, "Trust Factors", None)
     _add_bullets(doc, _lines(bottom.get("trust_bullets", ""), limit=3), limit=3)
     _add_small_text(doc, "Cautions", None)
     _add_bullets(doc, _lines(bottom.get("caution_bullets", ""), limit=3), limit=3)
 
-    _add_heading(doc, "Discussion questions")
+    _add_heading(doc, "Discussion Questions")
     questions = [
         _safe_text(deck.get("patient_problem", {}).get("discussion_question", "")),
         _safe_text(pico.get("discussion_question", "")),
@@ -193,10 +193,10 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     ]
     _add_bullets(doc, [q for q in questions if q], limit=4)
 
-    _add_heading(doc, "Resident take-home")
+    _add_heading(doc, "Resident Take-Home")
     _add_small_text(doc, _safe_text(final.get("resident_take_home", "")))
 
-    _add_feedback_block(doc)
+    #_add_feedback_block(doc)
 
     output = BytesIO()
     doc.save(output)
