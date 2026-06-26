@@ -1072,6 +1072,7 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
 
     st.divider()
     render_archive_controls(deck)
+    st.divider()
     
     pptx_bytes = build_powerpoint(deck, include_facilitator_notes=include_notes)
     st.download_button(
