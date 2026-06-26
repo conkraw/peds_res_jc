@@ -1002,10 +1002,10 @@ def render_archive_index() -> None:
                 "Presenter",
                 "Article title",
                 "Monthly skill",
-                "Session title",
-                "Article PDF",
-                "Archive ID",
-                "Draft path",
+                #"Session title",
+                #"Article PDF",
+                #"Archive ID",
+                #"Draft path",
             ]
             df = df[[col for col in preferred_columns if col in df.columns]]
             st.dataframe(df, hide_index=True, use_container_width=True)
