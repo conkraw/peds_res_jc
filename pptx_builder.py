@@ -190,53 +190,6 @@ def add_section_label(slide, x: float, y: float, w: float, label: str, fill: RGB
     return shape
 
 
-def add_small_label(slide, x: float, y: float, w: float, label: str, color: RGBColor = COLOR_ACCENT):
-    """Add a visible, compact label above a callout box.
-
-    The earlier label was just tiny text on a white background, so it could look
-    like it was missing after export. This version draws a small editable
-    rounded-rectangle "pill" label. The label width is based on the label text,
-    not the full callout width, so it stays readable without cluttering slides.
-    """
-    label_text = _safe_text(label).strip()
-    if not label_text:
-        return None
-
-    # Approximate width in inches: enough for the label, but never wider than
-    # the space the caller gave us. This keeps labels compact and consistent.
-    label_w = min(float(w), max(1.35, min(4.8, 0.12 * len(label_text) + 0.35)))
-    label_h = 0.30
-
-    shape = slide.shapes.add_shape(
-        MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE,
-        Inches(x),
-        Inches(y),
-        Inches(label_w),
-        Inches(label_h),
-    )
-    shape.fill.solid()
-    shape.fill.fore_color.rgb = COLOR_ACCENT_LIGHT
-    shape.line.color.rgb = COLOR_ACCENT_LIGHT
-
-    tf = shape.text_frame
-    tf.clear()
-    tf.word_wrap = False
-    tf.margin_left = Inches(0.06)
-    tf.margin_right = Inches(0.06)
-    tf.margin_top = Inches(0.02)
-    tf.margin_bottom = Inches(0.02)
-    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
-
-    p = tf.paragraphs[0]
-    p.alignment = PP_ALIGN.CENTER
-    r = p.add_run()
-    r.text = label_text
-    r.font.bold = True
-    r.font.size = Pt(10.5)
-    r.font.color.rgb = color
-    return shape
-
-
 def add_footer(slide, text: str = "Journal Club Builder"):
     add_textbox(slide, 0.6, 7.08, 12.0, 0.24, text, font_size=8, color=COLOR_MID, align=PP_ALIGN.RIGHT)
 
@@ -387,40 +340,36 @@ def build_title_goal_slide(prs, deck):
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_textbox(slide, 0.75, 0.6, 11.8, 0.55, data.get("session_title"), font_size=34, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     add_textbox(slide, 1.0, 1.28, 11.3, 0.85, data.get("article_title"), font_size=24, bold=True, align=PP_ALIGN.CENTER)
-    add_small_label(slide, 1.25, 2.20, 10.9, "Teaching Goal")
     add_textbox(slide, 1.25, 2.45, 10.9, 0.95, data.get("teaching_goal"), font_size=20, align=PP_ALIGN.CENTER, fill=COLOR_ACCENT_LIGHT)
     add_section_label(slide, 2.65, 4.0, 8.0, "Five Questions Residents Should Answer")
     add_bullets(slide, 2.6, 4.55, 8.5, 1.55, _lines(data.get("five_questions")), font_size=17, bullet=False)
     add_footer(slide)
     return slide
 
+
 def build_opening_case_slide(prs, deck):
     data = deck["opening_case"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "Opening Patient Case")
-    add_small_label(slide, 0.75, 0.98, 11.9, "Patient Case")
     add_textbox(slide, 0.75, 1.18, 11.9, 1.5, data.get("case_stem"), font_size=20, fill=COLOR_LIGHT_GRAY)
-    add_small_label(slide, 0.75, 2.75, 11.9, "Opening Question")
     add_textbox(slide, 0.75, 2.95, 11.9, 0.45, data.get("question"), font_size=22, bold=True, color=COLOR_ACCENT)
-    add_section_label(slide, 1.0, 3.45, 3.4, "Answer Choices")
-    add_bullets(slide, 1.0, 3.92, 6.4, 1.3, _lines(data.get("answer_choices")), font_size=18, bullet=False)
-    add_small_label(slide, 0.85, 5.42, 11.6, "Facilitator Prompt")
+    add_bullets(slide, 1.0, 3.55, 6.4, 1.6, _lines(data.get("answer_choices")), font_size=19, bullet=False)
     add_textbox(slide, 0.85, 5.65, 11.6, 0.75, data.get("facilitator_prompt"), font_size=18, bold=True, fill=COLOR_WARNING_LIGHT, align=PP_ALIGN.CENTER)
     add_footer(slide)
     return slide
+
 
 def build_patient_problem_slide(prs, deck):
     data = deck["patient_problem"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "The Patient Problem")
-    add_small_label(slide, 0.75, 0.98, 11.9, "Problem Framing")
-    add_textbox(slide, 0.75, 1.18, 11.9, 0.72, data.get("headline"), font_size=24, bold=True, color=COLOR_ACCENT)
+    add_textbox(slide, 0.75, 1.15, 11.9, 0.75, data.get("headline"), font_size=25, bold=True, color=COLOR_ACCENT)
     add_section_label(slide, 0.8, 2.18, 3.2, "Clinical Problem")
     add_bullets(slide, 0.95, 2.72, 11.5, 2.05, _lines(data.get("problem_bullets")), font_size=20)
-    add_small_label(slide, 0.85, 5.20, 11.6, "Discussion Question")
     add_textbox(slide, 0.85, 5.45, 11.6, 0.75, data.get("discussion_question"), font_size=21, bold=True, fill=COLOR_ACCENT_LIGHT, align=PP_ALIGN.CENTER)
     add_footer(slide)
     return slide
+
 
 def build_pico_slide(prs, deck):
     data = deck["pico"]
@@ -432,36 +381,33 @@ def build_pico_slide(prs, deck):
         add_section_label(slide, 0.75, y, 2.2, label)
         add_textbox(slide, 3.1, y - 0.02, 9.55, 0.55, data.get(key), font_size=15)
         y += 0.85
-    add_small_label(slide, 0.85, 4.72, 11.6, "Plain-Language Study Question")
     add_textbox(slide, 0.85, 4.95, 11.6, 0.75, data.get("plain_question"), font_size=20, bold=True, fill=COLOR_LIGHT_GRAY, align=PP_ALIGN.CENTER)
-    add_small_label(slide, 0.85, 5.86, 11.6, "Discussion Question")
-    add_textbox(slide, 0.85, 6.10, 11.6, 0.45, data.get("discussion_question"), font_size=18, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
+    add_textbox(slide, 0.85, 6.05, 11.6, 0.5, data.get("discussion_question"), font_size=19, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     add_footer(slide)
     return slide
+
 
 def build_study_design_slide(prs, deck):
     data = deck["study_design"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "What They Did")
-    add_small_label(slide, 0.75, 0.96, 11.9, "Study Design")
-    add_textbox(slide, 0.75, 1.16, 11.9, 0.50, data.get("design"), font_size=23, bold=True, color=COLOR_ACCENT)
+    add_textbox(slide, 0.75, 1.12, 11.9, 0.55, data.get("design"), font_size=24, bold=True, color=COLOR_ACCENT)
     add_section_label(slide, 0.75, 1.95, 3.0, "What That Means")
     add_bullets(slide, 0.9, 2.42, 5.7, 2.2, _lines(data.get("design_bullets")), font_size=14)
     add_section_label(slide, 6.95, 1.95, 2.7, "Who Was Included")
     add_bullets(slide, 7.05, 2.42, 5.2, 1.25, _lines(data.get("included")), font_size=14)
     add_section_label(slide, 6.95, 3.9, 2.7, "Important Exclusions")
     add_bullets(slide, 7.05, 4.35, 5.2, 1.55, _lines(data.get("excluded")), font_size=13)
-    add_small_label(slide, 0.85, 6.03, 11.6, "Discussion Question")
     add_textbox(slide, 0.85, 6.25, 11.6, 0.5, data.get("discussion_question"), font_size=17, bold=True, fill=COLOR_ACCENT_LIGHT, align=PP_ALIGN.CENTER)
     add_footer(slide)
     return slide
+
 
 def build_main_result_slide(prs, deck):
     data = deck["main_result"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "What They Found")
-    add_small_label(slide, 0.75, 0.92, 11.9, "Main Result")
-    add_textbox(slide, 0.75, 1.10, 11.9, 0.40, data.get("main_result"), font_size=23, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
+    add_textbox(slide, 0.75, 1.05, 11.9, 0.45, data.get("main_result"), font_size=24, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     visual_type = data.get("visual_type", "Results table")
 
     if visual_type == "Results table":
@@ -483,12 +429,11 @@ def build_main_result_slide(prs, deck):
     else:
         add_bullets(slide, 1.0, 1.75, 11.4, 2.6, _lines(data.get("key_results")), font_size=20)
 
-    add_small_label(slide, 0.85, 5.30, 11.6, "Plain-Language Result")
     add_textbox(slide, 0.85, 5.55, 11.6, 0.55, data.get("plain_result"), font_size=17, bold=True, fill=COLOR_LIGHT_GRAY, align=PP_ALIGN.CENTER)
-    add_small_label(slide, 0.85, 6.15, 11.6, "Discussion Question")
     add_textbox(slide, 0.85, 6.35, 11.6, 0.42, data.get("discussion_question"), font_size=15, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     add_footer(slide)
     return slide
+
 
 def build_clinical_bottom_line_slide(prs, deck):
     data = deck["clinical_bottom_line"]
@@ -496,15 +441,14 @@ def build_clinical_bottom_line_slide(prs, deck):
     add_title(slide, "What Should We Do?")
 
     # Top clinical interpretation.
-    add_small_label(slide, 0.75, 0.94, 11.9, "Clinical Bottom Line")
     add_textbox(
         slide,
         0.75,
-        1.20,
+        1.1,
         11.9,
-        0.75,
+        0.85,
         data.get("bottom_line"),
-        font_size=17,
+        font_size=18,
         bold=True,
         fill=COLOR_ACCENT_LIGHT,
         align=PP_ALIGN.CENTER,
@@ -607,23 +551,22 @@ def build_month_skill_slide(prs, deck):
     add_bullets(slide, 0.95, 1.75, 5.3, 2.3, _lines(data.get("reading_questions")), font_size=18, bullet=False)
     add_section_label(slide, 6.8, 1.25, 3.5, "Use This Paper As An Example")
     add_bullets(slide, 6.85, 1.75, 5.6, 2.3, _lines(data.get("this_paper_summary")), font_size=14, bullet=False)
-    add_small_label(slide, 0.85, 5.15, 11.6, "Teaching Pearl")
     add_textbox(slide, 0.85, 5.4, 11.6, 0.9, data.get("teaching_pearl"), font_size=18, bold=True, fill=COLOR_ACCENT_LIGHT, align=PP_ALIGN.CENTER)
     add_footer(slide)
     return slide
+
 
 def build_apply_back_slide(prs, deck):
     data = deck["apply_back"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "Apply Back To The Patient")
-    add_small_label(slide, 0.85, 1.12, 11.6, "Return-To-Case Question")
     add_textbox(slide, 0.85, 1.35, 11.6, 0.8, data.get("return_question"), font_size=24, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     add_section_label(slide, 3.0, 2.7, 7.3, "Closing Vote")
     add_bullets(slide, 3.15, 3.22, 7.3, 1.4, _lines(data.get("vote_options")), font_size=20, bullet=False)
-    add_small_label(slide, 0.85, 5.30, 11.6, "Facilitator Synthesis")
     add_textbox(slide, 0.85, 5.55, 11.6, 0.8, data.get("facilitator_synthesis"), font_size=17, bold=True, fill=COLOR_WARNING_LIGHT, align=PP_ALIGN.CENTER)
     add_footer(slide)
     return slide
+
 
 def build_final_bottom_line_slide(prs, deck):
     data = deck["final_bottom_line"]
@@ -634,11 +577,9 @@ def build_final_bottom_line_slide(prs, deck):
     resident_take_home = data.get("resident_take_home")
 
     summary_x = 0.95
-    summary_y = 1.32
+    summary_y = 1.20
     summary_w = 11.45
     summary_font_size = 20
-
-    add_small_label(slide, summary_x, summary_y - 0.25, summary_w, "Final Summary")
 
     summary_h = estimate_textbox_height(
         final_summary,
@@ -675,13 +616,13 @@ def build_final_bottom_line_slide(prs, deck):
         2.25,
         takehome_label_y,
         8.8,
-        "Resident Take-Home Sentence",
+        "Resident take-home sentence",
     )
 
     takehome_h = estimate_textbox_height(
         resident_take_home,
         width_inches=10.65,
-        font_size=22,
+        font_size=30,
         min_height=0.65,
         max_height=1.35,
         padding=0.16,
