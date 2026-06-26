@@ -94,11 +94,11 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "opening_case",
         "label": "Opening case",
-        "export_title": "Opening patient case",
+        "export_title": "Opening Patient Case",
         "fields": [
             {
                 "key": "case_stem",
-                "label": "Patient case",
+                "label": "Patient Case",
                 "type": "textarea",
                 "required": True,
                 "max_words": 95,
@@ -108,7 +108,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "question",
-                "label": "Opening question",
+                "label": "Opening Question",
                 "type": "text",
                 "required": True,
                 "max_words": 50,
@@ -117,7 +117,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "answer_choices",
-                "label": "Answer choices",
+                "label": "Answer Choices",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 5,
@@ -128,10 +128,11 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "facilitator_prompt",
-                "label": "Facilitator prompt",
-                "type": "text",
+                "label": "Facilitator Prompt",
+                "type": "textarea",
                 "required": False,
                 "max_words": 50,
+                "height":100,
                 "default": "Most of us have seen this exact situation. The question is whether the number on the monitor is helping the child or prolonging the admission.",
                 "guide": "What should the facilitator say to frame the case?",
             },
@@ -139,12 +140,12 @@ SLIDES: List[Dict[str, Any]] = [
     },
     {
         "id": "patient_problem",
-        "label": "Slide 1: Patient problem",
-        "export_title": "The patient problem",
+        "label": "Slide 1: Patient Problem",
+        "export_title": "The Patient Problem",
         "fields": [
             {
                 "key": "headline",
-                "label": "Slide headline",
+                "label": "Slide Headline",
                 "type": "text",
                 "required": True,
                 "max_words": 50,
@@ -153,7 +154,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "problem_bullets",
-                "label": "Clinical problem bullets",
+                "label": "Clinical Problem Bullets",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 5,
@@ -163,7 +164,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "discussion_question",
-                "label": "Discussion question",
+                "label": "Discussion Question",
                 "type": "text",
                 "required": True,
                 "max_words": 50,
@@ -172,7 +173,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "speaker_note",
-                "label": "Speaker note / facilitator note",
+                "label": "Speaker Note / Facilitator Note",
                 "type": "textarea",
                 "required": False,
                 "max_words": 100,
@@ -184,11 +185,11 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "pico",
         "label": "Slide 2: Study question / PICO",
-        "export_title": "The study question",
+        "export_title": "The Study Question",
         "fields": [
             {
                 "key": "patient",
-                "label": "Patient/problem",
+                "label": "Patient/Problem",
                 "type": "textarea",
                 "required": True,
                 "max_words": 50,
@@ -224,7 +225,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "plain_question",
-                "label": "Plain-language study question",
+                "label": "Plain-Language Study Question",
                 "type": "textarea",
                 "required": True,
                 "max_words": 50,
@@ -233,7 +234,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "discussion_question",
-                "label": "Discussion question",
+                "label": "Discussion Question",
                 "type": "text",
                 "required": True,
                 "max_words": 50,
@@ -245,11 +246,11 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "study_design",
         "label": "Slide 3: What they did",
-        "export_title": "What they did",
+        "export_title": "What They Did",
         "fields": [
             {
                 "key": "design",
-                "label": "Study design",
+                "label": "Study Design",
                 "type": "text",
                 "required": True,
                 "max_words": 50,
@@ -257,7 +258,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "design_bullets",
-                "label": "What that means",
+                "label": "What That Means",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 6,
@@ -266,7 +267,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "included",
-                "label": "Who was included",
+                "label": "Who Was Included",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 10,
@@ -275,7 +276,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "excluded",
-                "label": "Important exclusions",
+                "label": "Important Exclusions",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 10,
@@ -284,7 +285,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "discussion_question",
-                "label": "Discussion question",
+                "label": "Discussion Question",
                 "type": "text",
                 "required": True,
                 "max_words": 50,
@@ -295,11 +296,11 @@ SLIDES: List[Dict[str, Any]] = [
     {
         "id": "main_result",
         "label": "Slide 4: What they found",
-        "export_title": "What they found",
+        "export_title": "What They Found",
         "fields": [
             {
                 "key": "main_result",
-                "label": "Main result headline",
+                "label": "Main Result Headline",
                 "type": "text",
                 "required": True,
                 "max_words": 50,
@@ -307,7 +308,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "visual_type",
-                "label": "Visual format",
+                "label": "Visual Format",
                 "type": "select",
                 "required": True,
                 "options": ["Results table", "Big-number card", "Simple bar chart", "No visual"],
@@ -316,7 +317,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "results_table_columns",
-                "label": "Results table columns",
+                "label": "Results Table Columns",
                 "type": "text",
                 "required": False,
                 "max_words": 50,
@@ -326,7 +327,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "results_table",
-                "label": "Results table",
+                "label": "Results Table",
                 "type": "table",
                 "required": False,
                 "default": DEFAULT_RESULTS_TABLE,
@@ -337,7 +338,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "big_number",
-                "label": "Big-number text",
+                "label": "Big-Number Text",
                 "type": "text",
                 "required": False,
                 "max_words": 8,
@@ -346,7 +347,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "big_number_caption",
-                "label": "Big-number caption",
+                "label": "Big-Number Caption",
                 "type": "textarea",
                 "required": False,
                 "max_words": 22,
@@ -355,7 +356,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "chart_title",
-                "label": "Chart title",
+                "label": "Chart Title",
                 "type": "text",
                 "required": False,
                 "max_words": 10,
@@ -364,7 +365,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "chart_group_1_label",
-                "label": "Group 1 label",
+                "label": "Group 1 Label",
                 "type": "text",
                 "required": False,
                 "max_words": 5,
@@ -373,7 +374,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "chart_group_1_value",
-                "label": "Group 1 value",
+                "label": "Group 1 Value",
                 "type": "number",
                 "required": False,
                 "default": 27.6,
@@ -382,7 +383,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "chart_group_2_label",
-                "label": "Group 2 label",
+                "label": "Group 2 Label",
                 "type": "text",
                 "required": False,
                 "max_words": 5,
@@ -391,7 +392,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "chart_group_2_value",
-                "label": "Group 2 value",
+                "label": "Group 2 Value",
                 "type": "number",
                 "required": False,
                 "default": 46.6,
@@ -400,7 +401,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "chart_units",
-                "label": "Chart units",
+                "label": "Chart Units",
                 "type": "text",
                 "required": False,
                 "max_words": 3,
@@ -409,7 +410,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "key_results",
-                "label": "Key results bullets",
+                "label": "Key Results Bullets",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 7,
@@ -419,7 +420,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "plain_result",
-                "label": "Plain-language result",
+                "label": "Plain-Language Result",
                 "type": "textarea",
                 "required": True,
                 "max_words": 50,
@@ -428,7 +429,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "discussion_question",
-                "label": "Discussion question",
+                "label": "Discussion Question",
                 "type": "text",
                 "required": True,
                 "max_words": 50,
@@ -438,12 +439,12 @@ SLIDES: List[Dict[str, Any]] = [
     },
     {
         "id": "clinical_bottom_line",
-        "label": "Slide 5: What should we do?",
+        "label": "Slide 5: What Should We Do?",
         "export_title": "What should we do?",
         "fields": [
             {
                 "key": "bottom_line",
-                "label": "Clinical bottom line",
+                "label": "Clinical Bottom Line",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -451,7 +452,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "trust_bullets",
-                "label": "Why I trust it",
+                "label": "Why I Trust It",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 10,
@@ -460,7 +461,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "caution_bullets",
-                "label": "Why I am cautious",
+                "label": "Why I Am Cautious",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 10,
@@ -469,7 +470,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "practice_statement",
-                "label": "Practice statement",
+                "label": "Practice Statement",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -477,7 +478,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "family_explanation",
-                "label": "Family-facing explanation",
+                "label": "Family-Facing Explanation",
                 "type": "textarea",
                 "required": False,
                 "max_words": 100,
@@ -487,12 +488,12 @@ SLIDES: List[Dict[str, Any]] = [
     },
     {
         "id": "paper_framework",
-        "label": "PAPER framework discussion",
+        "label": "PAPER Framework Discussion",
         "export_title": "PAPER framework discussion",
         "fields": [
             {
                 "key": "patient_problem_answer",
-                "label": "P — Patient problem",
+                "label": "P — Patient Problem",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -501,7 +502,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "article_type_answer",
-                "label": "A — Article type",
+                "label": "A — Article Type",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -510,7 +511,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "primary_question_answer",
-                "label": "P — Primary question / outcome",
+                "label": "P — Primary Question / Outcome",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -519,7 +520,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "evidence_quality_answer",
-                "label": "E — Evidence quality",
+                "label": "E — Evidence Quality",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -528,7 +529,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "real_world_answer",
-                "label": "R — Real-world use",
+                "label": "R — Real-World Use",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -539,7 +540,7 @@ SLIDES: List[Dict[str, Any]] = [
     },
     {
         "id": "month_skill",
-        "label": "Month 1 focus skill",
+        "label": "Monthly Focus Skill",
         "export_title": "Month 1 focus skill",
         "fields": [
             {
@@ -552,7 +553,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "reading_questions",
-                "label": "Five things to find",
+                "label": "Five Things To Find",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 5,
@@ -561,7 +562,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "this_paper_summary",
-                "label": "Use this paper as the example",
+                "label": "Use This Paper As An Example",
                 "type": "textarea",
                 "required": True,
                 #"max_lines": 5,
@@ -570,7 +571,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "teaching_pearl",
-                "label": "Teaching pearl",
+                "label": "Teaching Pearl",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -581,12 +582,12 @@ SLIDES: List[Dict[str, Any]] = [
     },
     {
         "id": "apply_back",
-        "label": "Apply back to the patient",
+        "label": "Apply Back To The Patient",
         "export_title": "Apply back to the patient",
         "fields": [
             {
                 "key": "return_question",
-                "label": "Return-to-case question",
+                "label": "Return-To-Case Question",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -595,7 +596,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "vote_options",
-                "label": "Closing vote options",
+                "label": "Closing Vote Options",
                 "type": "textarea",
                 "required": True,
                 "max_lines": 5,
@@ -604,7 +605,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "facilitator_synthesis",
-                "label": "Facilitator synthesis",
+                "label": "Facilitator Synthesis",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -615,12 +616,12 @@ SLIDES: List[Dict[str, Any]] = [
     },
     {
         "id": "final_bottom_line",
-        "label": "Final bottom line",
+        "label": "Final Bottom Line",
         "export_title": "Final bottom line",
         "fields": [
             {
                 "key": "final_summary",
-                "label": "Final summary",
+                "label": "Final Summary",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
@@ -628,7 +629,7 @@ SLIDES: List[Dict[str, Any]] = [
             },
             {
                 "key": "resident_take_home",
-                "label": "Resident take-home sentence",
+                "label": "Resident Take-Home Sentence",
                 "type": "textarea",
                 "required": True,
                 "max_words": 100,
