@@ -374,7 +374,7 @@ def build_patient_problem_slide(prs, deck):
 def build_pico_slide(prs, deck):
     data = deck["pico"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
-    add_title(slide, "The Study Question", "PICO")
+    add_title(slide, "The Study Question")
     labels = [("Patient/Problem", "patient"), ("Intervention", "intervention"), ("Comparison", "comparison"), ("Outcome", "outcome")]
     y = 1.35
     for label, key in labels:
