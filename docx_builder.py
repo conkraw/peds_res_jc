@@ -42,7 +42,7 @@ DOC_FONT = "Calibri"
 # Vertical space after a completed table/field block.
 # This creates breathing room BETWEEN sections while keeping blue headers
 # physically connected to the box/table directly under them.
-SECTION_GAP_PT = 8
+SECTION_GAP_PT = 0
 
 EMU_PER_INCH = 914400
 TWIPS_PER_INCH = 1440
