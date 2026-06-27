@@ -220,7 +220,7 @@ def _write_cell_text(
             p = cell.add_paragraph()
         _format_paragraph(p, align=align, space_after=0, line_spacing=line_spacing)
         run = p.add_run(raw)
-        run.font.name = "Arial"
+        run.font.name = "Calibri"
         run.font.size = Pt(font_size)
         run.bold = bold
         run.italic = italic
