@@ -38,6 +38,7 @@ WHITE = "FFFFFF"
 BORDER = "000000"
 TEXT_DARK = RGBColor(20, 20, 20)
 TEXT_MUTED = RGBColor(95, 95, 95)
+DOC_FONT = "Calibri"
 
 EMU_PER_INCH = 914400
 TWIPS_PER_INCH = 1440
@@ -100,9 +101,22 @@ def _lock_table_widths(table, widths: List[float]) -> None:
 
 
 def _set_row_height(row, height_pt: float, exact: bool = False) -> None:
-    """Set a stable row height so Word font changes do not squeeze banner rows."""
+    """Set a stable row height and force it into the DOCX XML.
+
+    python-docx's row.height can be inconsistently serialized for merged
+    table rows. Writing w:trHeight directly makes the blue banner rows stable
+    in Word, including after switching fonts to Calibri.
+    """
     row.height = Pt(height_pt)
     row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY if exact else WD_ROW_HEIGHT_RULE.AT_LEAST
+
+    tr_pr = row._tr.get_or_add_trPr()
+    tr_height = tr_pr.find(qn("w:trHeight"))
+    if tr_height is None:
+        tr_height = OxmlElement("w:trHeight")
+        tr_pr.append(tr_height)
+    tr_height.set(qn("w:val"), str(int(height_pt * 20)))
+    tr_height.set(qn("w:hRule"), "exact" if exact else "atLeast")
 
 
 
@@ -226,7 +240,7 @@ def _write_cell_text(
             p = cell.add_paragraph()
         _format_paragraph(p, align=align, space_after=0, line_spacing=line_spacing)
         run = p.add_run(raw)
-        run.font.name = "Arial"
+        run.font.name = DOC_FONT
         run.font.size = Pt(font_size)
         run.bold = bold
         run.italic = italic
@@ -264,10 +278,10 @@ def _add_banner(doc: Document, text: str) -> None:
     table = doc.add_table(rows=1, cols=1)
     _style_table_grid(table)
     _set_table_widths(table, [_body_width_inches(doc)])
-    _set_row_height(table.rows[0], 20, exact=False)
+    _set_row_height(table.rows[0], 20, exact=True)
     cell = table.cell(0, 0)
     _shade_cell(cell, BLUE)
-    _set_cell_margins(cell, top=30, start=80, bottom=30, end=80)
+    _set_cell_margins(cell, top=0, start=80, bottom=0, end=80)
     _write_cell_text(
         cell,
         _safe_text(text).upper(),
@@ -385,14 +399,15 @@ def _add_banner_two_column_value_table(
     table.allow_autofit = False
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     _set_table_fixed_width(table, total_width)
-    _set_row_height(table.rows[0], 20, exact=False)
+    _set_row_height(table.rows[0], 20, exact=True)
 
     # Header row: merge both columns so the blue banner shares the exact same
     # table grid and outer borders as the rows below.
     header_cell = table.rows[0].cells[0].merge(table.rows[0].cells[1])
     _shade_cell(header_cell, BLUE)
     _set_cell_borders(header_cell)
-    _set_cell_margins(header_cell, top=30, start=80, bottom=30, end=80)
+    _set_row_height(table.rows[0], 20, exact=True)
+    _set_cell_margins(header_cell, top=0, start=80, bottom=0, end=80)
     _set_cell_width(header_cell, total_width)
     _write_cell_text(
         header_cell,
@@ -542,7 +557,7 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     section.right_margin = Inches(0.45)
 
     styles = doc.styles
-    styles["Normal"].font.name = "Arial"
+    styles["Normal"].font.name = DOC_FONT
     styles["Normal"].font.size = Pt(8.8)
 
     title_data = deck.get("title_goal", {})
@@ -722,7 +737,7 @@ def build_review_text_docx(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     section.right_margin = Inches(0.6)
 
     styles = doc.styles
-    styles["Normal"].font.name = "Arial"
+    styles["Normal"].font.name = DOC_FONT
     styles["Normal"].font.size = Pt(10)
 
     title_data = deck.get("title_goal", {})
