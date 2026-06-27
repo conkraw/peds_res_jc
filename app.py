@@ -1092,8 +1092,11 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     )
 
     #printable_form = build_printable_planning_form(deck)
-    with open("journal_club_printable_planning_form.docx","rb",) as f:
-    printable_form = f.read()
+    with open(
+    "journal_club_printable_planning_form.docx",
+    "rb",
+    ) as f:
+        printable_form = f.read()
     st.download_button(
         "Download Printable Planning Form",
         data=printable_form,
