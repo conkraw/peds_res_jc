@@ -18,7 +18,7 @@ from typing import Any, Dict, Iterable, List
 
 from docx import Document
 from docx.enum.section import WD_ORIENT
-from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
+from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT, WD_ROW_HEIGHT_RULE
 from docx.enum.text import WD_ALIGN_PARAGRAPH
 from docx.oxml import OxmlElement
 from docx.oxml.ns import qn
@@ -97,6 +97,12 @@ def _lock_table_widths(table, widths: List[float]) -> None:
         for idx, width in enumerate(widths):
             if idx < len(row.cells):
                 _set_cell_width(row.cells[idx], width)
+
+
+def _set_row_height(row, height_pt: float, exact: bool = False) -> None:
+    """Set a stable row height so Word font changes do not squeeze banner rows."""
+    row.height = Pt(height_pt)
+    row.height_rule = WD_ROW_HEIGHT_RULE.EXACTLY if exact else WD_ROW_HEIGHT_RULE.AT_LEAST
 
 
 
@@ -220,7 +226,7 @@ def _write_cell_text(
             p = cell.add_paragraph()
         _format_paragraph(p, align=align, space_after=0, line_spacing=line_spacing)
         run = p.add_run(raw)
-        run.font.name = "Calibri"
+        run.font.name = "Arial"
         run.font.size = Pt(font_size)
         run.bold = bold
         run.italic = italic
@@ -258,8 +264,10 @@ def _add_banner(doc: Document, text: str) -> None:
     table = doc.add_table(rows=1, cols=1)
     _style_table_grid(table)
     _set_table_widths(table, [_body_width_inches(doc)])
+    _set_row_height(table.rows[0], 20, exact=False)
     cell = table.cell(0, 0)
     _shade_cell(cell, BLUE)
+    _set_cell_margins(cell, top=30, start=80, bottom=30, end=80)
     _write_cell_text(
         cell,
         _safe_text(text).upper(),
@@ -377,13 +385,14 @@ def _add_banner_two_column_value_table(
     table.allow_autofit = False
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
     _set_table_fixed_width(table, total_width)
+    _set_row_height(table.rows[0], 20, exact=False)
 
     # Header row: merge both columns so the blue banner shares the exact same
     # table grid and outer borders as the rows below.
     header_cell = table.rows[0].cells[0].merge(table.rows[0].cells[1])
     _shade_cell(header_cell, BLUE)
     _set_cell_borders(header_cell)
-    _set_cell_margins(header_cell, top=45, start=80, bottom=45, end=80)
+    _set_cell_margins(header_cell, top=30, start=80, bottom=30, end=80)
     _set_cell_width(header_cell, total_width)
     _write_cell_text(
         header_cell,
