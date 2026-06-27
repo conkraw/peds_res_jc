@@ -250,7 +250,11 @@ def _add_spacer(doc: Document, pts: float = 4) -> None:
 
 
 def _add_banner(doc: Document, text: str) -> None:
-    """Blue full-width section header, matching the planning worksheet."""
+    """Blue full-width section header, matching the planning worksheet.
+
+    Do not add a spacer after the banner; the following field/table should
+    sit directly underneath it so the section looks like one connected block.
+    """
     table = doc.add_table(rows=1, cols=1)
     _style_table_grid(table)
     _set_table_widths(table, [_body_width_inches(doc)])
@@ -264,7 +268,6 @@ def _add_banner(doc: Document, text: str) -> None:
         color=RGBColor(255, 255, 255),
         align=WD_ALIGN_PARAGRAPH.CENTER,
     )
-    _add_spacer(doc, 3)
 
 
 def _add_document_title_block(doc: Document, title: str, subtitle: str = "", kicker: str = "JOURNAL CLUB BUILDER") -> None:
