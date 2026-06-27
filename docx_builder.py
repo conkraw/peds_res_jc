@@ -1,19 +1,48 @@
-"""Word summary export logic for Journal Club Builder."""
+"""Word export logic for Journal Club Builder.
+
+This module creates:
+- a compact session summary DOCX
+- a mentor review DOCX with full slide text and Track Changes enabled
+
+The visual style intentionally mirrors the printable planning worksheet: blue
+section headers, gray field labels, white content areas, and simple table-grid
+structure. The goal is readability and standardization without changing the
+underlying export content.
+"""
 
 from __future__ import annotations
 
 from io import BytesIO
 from zipfile import ZIP_DEFLATED, ZipFile
-from typing import Any, Dict, List
+from typing import Any, Dict, Iterable, List
 
 from docx import Document
 from docx.enum.section import WD_ORIENT
+from docx.enum.table import WD_TABLE_ALIGNMENT, WD_CELL_VERTICAL_ALIGNMENT
 from docx.enum.text import WD_ALIGN_PARAGRAPH
+from docx.oxml import OxmlElement
+from docx.oxml.ns import qn
 from docx.shared import Inches, Pt, RGBColor
 import qrcode
 
 from feedback_config import REDCAP_DISPLAY_URL, REDCAP_QR_URL
 from slide_schema import SLIDES
+
+
+# Colors match the printable planning worksheet style.
+BLUE = "4F8ED9"
+BLUE_DARK = RGBColor(30, 80, 130)
+HEADER_GRAY = "D9D9D9"
+FOOTER_BLUE = "DDEFF4"
+WHITE = "FFFFFF"
+BORDER = "000000"
+TEXT_DARK = RGBColor(20, 20, 20)
+TEXT_MUTED = RGBColor(95, 95, 95)
+
+
+# -----------------------------
+# Basic text helpers
+# -----------------------------
 
 
 def _safe_text(value: Any) -> str:
@@ -32,55 +61,285 @@ def _lines(value: Any, limit: int | None = None) -> List[str]:
     return lines[:limit] if limit else lines
 
 
-def _add_heading(doc: Document, text: str, size: int = 11) -> None:
-    p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(3)
-    p.paragraph_format.space_after = Pt(1)
-    run = p.add_run(text)
-    run.bold = True
-    run.font.size = Pt(size)
-    run.font.color.rgb = RGBColor(30, 80, 130)
+def _bullet_text(items: Iterable[str], limit: int | None = None) -> str:
+    cleaned = [str(item).strip() for item in items if str(item).strip()]
+    if limit is not None:
+        cleaned = cleaned[:limit]
+    return "\n".join(f"• {item}" for item in cleaned)
 
 
-def _add_small_text(doc: Document, text: str, bold_label: str | None = None) -> None:
-    p = doc.add_paragraph()
-    p.paragraph_format.space_after = Pt(1)
-    p.paragraph_format.line_spacing = 1.0
-    if bold_label:
-        r = p.add_run(f"{bold_label}: ")
-        r.bold = True
-        r.font.size = Pt(9)
-    r = p.add_run(_safe_text(text))
-    r.font.size = Pt(9)
+def _numbered_text(items: Iterable[str], limit: int | None = None) -> str:
+    cleaned = [str(item).strip() for item in items if str(item).strip()]
+    if limit is not None:
+        cleaned = cleaned[:limit]
+    return "\n".join(f"{idx}. {item}" for idx, item in enumerate(cleaned, start=1))
 
 
-def _add_bullets(doc: Document, items: List[str], limit: int = 4) -> None:
-    for item in items[:limit]:
-        p = doc.add_paragraph(style=None)
-        p.paragraph_format.left_indent = Inches(0.18)
-        p.paragraph_format.first_line_indent = Inches(-0.12)
-        p.paragraph_format.space_after = Pt(0)
-        p.paragraph_format.line_spacing = 1.0
-        r = p.add_run(f"• {item}")
-        r.font.size = Pt(8.5)
+# -----------------------------
+# DOCX table styling helpers
+# -----------------------------
 
 
-def _add_compact_table(doc: Document, rows: List[tuple[str, str]]) -> None:
-    table = doc.add_table(rows=0, cols=2)
+def _shade_cell(cell, fill: str) -> None:
+    tc_pr = cell._tc.get_or_add_tcPr()
+    shd = tc_pr.find(qn("w:shd"))
+    if shd is None:
+        shd = OxmlElement("w:shd")
+        tc_pr.append(shd)
+    shd.set(qn("w:fill"), fill)
+
+
+def _set_cell_borders(cell, color: str = BORDER, size: str = "6") -> None:
+    tc_pr = cell._tc.get_or_add_tcPr()
+    borders = tc_pr.find(qn("w:tcBorders"))
+    if borders is None:
+        borders = OxmlElement("w:tcBorders")
+        tc_pr.append(borders)
+    for edge in ("top", "left", "bottom", "right", "insideH", "insideV"):
+        tag = f"w:{edge}"
+        element = borders.find(qn(tag))
+        if element is None:
+            element = OxmlElement(tag)
+            borders.append(element)
+        element.set(qn("w:val"), "single")
+        element.set(qn("w:sz"), size)
+        element.set(qn("w:space"), "0")
+        element.set(qn("w:color"), color)
+
+
+def _set_cell_margins(cell, top: int = 60, start: int = 80, bottom: int = 60, end: int = 80) -> None:
+    tc = cell._tc
+    tc_pr = tc.get_or_add_tcPr()
+    tc_mar = tc_pr.first_child_found_in("w:tcMar")
+    if tc_mar is None:
+        tc_mar = OxmlElement("w:tcMar")
+        tc_pr.append(tc_mar)
+    for margin_name, value in {"top": top, "start": start, "bottom": bottom, "end": end}.items():
+        node = tc_mar.find(qn(f"w:{margin_name}"))
+        if node is None:
+            node = OxmlElement(f"w:{margin_name}")
+            tc_mar.append(node)
+        node.set(qn("w:w"), str(value))
+        node.set(qn("w:type"), "dxa")
+
+
+def _format_paragraph(paragraph, align=WD_ALIGN_PARAGRAPH.LEFT, space_after: float = 0, line_spacing: float = 1.0) -> None:
+    paragraph.alignment = align
+    paragraph.paragraph_format.space_after = Pt(space_after)
+    paragraph.paragraph_format.line_spacing = line_spacing
+
+
+def _clear_cell(cell) -> None:
+    cell.text = ""
+    # Ensure one empty paragraph remains.
+    if not cell.paragraphs:
+        cell.add_paragraph()
+
+
+def _write_cell_text(
+    cell,
+    text: Any,
+    *,
+    font_size: float = 9.0,
+    bold: bool = False,
+    italic: bool = False,
+    color: RGBColor = TEXT_DARK,
+    align=WD_ALIGN_PARAGRAPH.LEFT,
+    line_spacing: float = 1.0,
+) -> None:
+    """Write text into a table cell while preserving line breaks."""
+    _clear_cell(cell)
+    cell.vertical_alignment = WD_CELL_VERTICAL_ALIGNMENT.CENTER
+    paragraphs = _safe_text(text).splitlines() or [""]
+    first = True
+    for raw in paragraphs:
+        if first:
+            p = cell.paragraphs[0]
+            first = False
+        else:
+            p = cell.add_paragraph()
+        _format_paragraph(p, align=align, space_after=0, line_spacing=line_spacing)
+        run = p.add_run(raw)
+        run.font.name = "Arial"
+        run.font.size = Pt(font_size)
+        run.bold = bold
+        run.italic = italic
+        run.font.color.rgb = color
+
+
+def _style_table_grid(table) -> None:
     table.style = "Table Grid"
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
     table.autofit = True
+    for row in table.rows:
+        for cell in row.cells:
+            _set_cell_borders(cell)
+            _set_cell_margins(cell)
+
+
+def _set_table_widths(table, widths: List[float]) -> None:
+    """Best-effort table column widths in inches."""
+    for row in table.rows:
+        for idx, width in enumerate(widths):
+            if idx < len(row.cells):
+                row.cells[idx].width = Inches(width)
+
+
+def _add_spacer(doc: Document, pts: float = 4) -> None:
+    p = doc.add_paragraph()
+    p.paragraph_format.space_after = Pt(pts)
+    p.paragraph_format.line_spacing = 1.0
+
+
+def _add_banner(doc: Document, text: str) -> None:
+    """Blue full-width section header, matching the planning worksheet."""
+    table = doc.add_table(rows=1, cols=1)
+    _style_table_grid(table)
+    cell = table.cell(0, 0)
+    _shade_cell(cell, BLUE)
+    _write_cell_text(
+        cell,
+        _safe_text(text).upper(),
+        font_size=10.5,
+        bold=True,
+        color=RGBColor(255, 255, 255),
+        align=WD_ALIGN_PARAGRAPH.CENTER,
+    )
+    _add_spacer(doc, 3)
+
+
+def _add_document_title_block(doc: Document, title: str, subtitle: str = "", kicker: str = "JOURNAL CLUB BUILDER") -> None:
+    """Top title table styled like the worksheet header."""
+    table = doc.add_table(rows=0, cols=1)
+    _style_table_grid(table)
+
+    cell = table.add_row().cells[0]
+    _shade_cell(cell, "C8D8EA")
+    _write_cell_text(cell, kicker, font_size=11, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    cell = table.add_row().cells[0]
+    _shade_cell(cell, HEADER_GRAY)
+    _write_cell_text(cell, title, font_size=14, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    if subtitle:
+        cell = table.add_row().cells[0]
+        _shade_cell(cell, WHITE)
+        _write_cell_text(cell, subtitle, font_size=9.5, italic=True, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    _add_spacer(doc, 8)
+
+
+def _add_field_box(
+    doc: Document,
+    label: str,
+    text: Any,
+    *,
+    footer: str = "",
+    content_font_size: float = 9.2,
+    content_bold: bool = False,
+    content_italic: bool = False,
+    label_font_size: float = 9.5,
+    keep_blank: bool = True,
+) -> None:
+    """Planning-form style field: gray label row, white content row, optional pale-blue footer."""
+    rows = 3 if footer else 2
+    table = doc.add_table(rows=rows, cols=1)
+    _style_table_grid(table)
+
+    label_cell = table.cell(0, 0)
+    _shade_cell(label_cell, HEADER_GRAY)
+    _write_cell_text(label_cell, _safe_text(label).upper(), font_size=label_font_size, bold=True)
+
+    content_cell = table.cell(1, 0)
+    _shade_cell(content_cell, WHITE)
+    content = _safe_text(text)
+    if not content and keep_blank:
+        content = "[blank]"
+    _write_cell_text(
+        content_cell,
+        content,
+        font_size=content_font_size,
+        bold=content_bold,
+        italic=content_italic,
+        line_spacing=1.05,
+    )
+
+    if footer:
+        footer_cell = table.cell(2, 0)
+        _shade_cell(footer_cell, FOOTER_BLUE)
+        _write_cell_text(footer_cell, _safe_text(footer).upper(), font_size=8.2, bold=True)
+
+    _add_spacer(doc, 5)
+
+
+def _add_two_column_value_table(doc: Document, rows: List[tuple[str, str]], *, label_width: float = 1.65, value_width: float = 5.7) -> None:
+    table = doc.add_table(rows=0, cols=2)
+    _style_table_grid(table)
     for label, value in rows:
         cells = table.add_row().cells
-        cells[0].text = label
-        cells[1].text = value
-        for idx, cell in enumerate(cells):
-            for paragraph in cell.paragraphs:
-                paragraph.paragraph_format.space_after = Pt(0)
-                paragraph.paragraph_format.line_spacing = 1.0
-                for run in paragraph.runs:
-                    run.font.size = Pt(8.5)
-                    if idx == 0:
-                        run.bold = True
+        _shade_cell(cells[0], HEADER_GRAY)
+        _shade_cell(cells[1], WHITE)
+        _write_cell_text(cells[0], _safe_text(label).upper(), font_size=8.5, bold=True)
+        _write_cell_text(cells[1], _safe_text(value), font_size=8.6)
+    _set_table_widths(table, [label_width, value_width])
+    _add_spacer(doc, 5)
+
+
+def _add_two_column_text_boxes(doc: Document, left_label: str, left_text: str, right_label: str, right_text: str) -> None:
+    table = doc.add_table(rows=2, cols=2)
+    _style_table_grid(table)
+    headers = table.rows[0].cells
+    bodies = table.rows[1].cells
+
+    for cell, label in zip(headers, [left_label, right_label]):
+        _shade_cell(cell, HEADER_GRAY)
+        _write_cell_text(cell, label.upper(), font_size=9, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    for cell, text in zip(bodies, [left_text, right_text]):
+        _shade_cell(cell, WHITE)
+        _write_cell_text(cell, text or "[blank]", font_size=8.5, line_spacing=1.0)
+
+    _set_table_widths(table, [3.65, 3.65])
+    _add_spacer(doc, 5)
+
+
+def _add_editable_table(doc: Document, label: str, rows: Any) -> None:
+    """Add a readable editable representation of a slide table."""
+    _add_banner(doc, label)
+    if not isinstance(rows, list) or not rows:
+        _add_field_box(doc, "Table", "[blank table]", content_italic=True)
+        return
+
+    columns: List[str] = []
+    for row in rows:
+        if isinstance(row, dict):
+            for key in row.keys():
+                if str(key) not in columns:
+                    columns.append(str(key))
+    if not columns:
+        _add_field_box(doc, "Table", "[blank table]", content_italic=True)
+        return
+
+    table = doc.add_table(rows=1, cols=len(columns))
+    _style_table_grid(table)
+    for idx, column in enumerate(columns):
+        cell = table.rows[0].cells[idx]
+        _shade_cell(cell, HEADER_GRAY)
+        _write_cell_text(cell, column.upper(), font_size=8.2, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        cells = table.add_row().cells
+        for idx, column in enumerate(columns):
+            _shade_cell(cells[idx], WHITE)
+            _write_cell_text(cells[idx], _safe_text(row.get(column, "")), font_size=8.2)
+    _add_spacer(doc, 5)
+
+
+# -----------------------------
+# QR / feedback helpers
+# -----------------------------
 
 
 def _make_qr_image(url: str) -> BytesIO:
@@ -107,10 +366,10 @@ def _add_feedback_block(doc: Document) -> None:
     run = p.add_run("Feedback: ")
     run.bold = True
     run.font.size = Pt(8.5)
-    run.font.color.rgb = RGBColor(30, 80, 130)
+    run.font.color.rgb = BLUE_DARK
     link = p.add_run(REDCAP_DISPLAY_URL)
     link.font.size = Pt(8.5)
-    link.font.color.rgb = RGBColor(30, 80, 130)
+    link.font.color.rgb = BLUE_DARK
 
     p2 = doc.add_paragraph()
     p2.alignment = WD_ALIGN_PARAGRAPH.CENTER
@@ -120,21 +379,30 @@ def _add_feedback_block(doc: Document) -> None:
     run.add_picture(_make_qr_image(REDCAP_QR_URL), width=Inches(0.72))
 
 
+# -----------------------------
+# One-page / audience summary export
+# -----------------------------
+
+
 def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
-    """Build a compact one-page DOCX summary for session handout/records."""
+    """Build a compact DOCX summary for session handout/records.
+
+    The included content matches the prior summary export; only the visual
+    formatting has been changed to planning-form style tables.
+    """
     doc = Document()
     section = doc.sections[0]
     section.orientation = WD_ORIENT.PORTRAIT
     section.page_width = Inches(8.5)
     section.page_height = Inches(11)
-    section.top_margin = Inches(0.45)
-    section.bottom_margin = Inches(0.45)
-    section.left_margin = Inches(0.55)
-    section.right_margin = Inches(0.55)
+    section.top_margin = Inches(0.38)
+    section.bottom_margin = Inches(0.38)
+    section.left_margin = Inches(0.45)
+    section.right_margin = Inches(0.45)
 
     styles = doc.styles
     styles["Normal"].font.name = "Arial"
-    styles["Normal"].font.size = Pt(9)
+    styles["Normal"].font.size = Pt(8.8)
 
     title_data = deck.get("title_goal", {})
     pico = deck.get("pico", {})
@@ -143,26 +411,15 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     bottom = deck.get("clinical_bottom_line", {})
     final = deck.get("final_bottom_line", {})
 
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.space_after = Pt(1)
-    r = p.add_run(_safe_text(title_data.get("session_title", "Journal Club")))
-    r.bold = True
-    r.font.size = Pt(15)
-    r.font.color.rgb = RGBColor(30, 80, 130)
+    session_title = _safe_text(title_data.get("session_title", "Journal Club")) or "Journal Club"
+    article_title = _safe_text(title_data.get("article_title", ""))
+    _add_document_title_block(doc, session_title, article_title, kicker="PEDIATRIC RESIDENCY JOURNAL CLUB BUILDER")
 
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.space_after = Pt(5)
-    r = p.add_run(_safe_text(title_data.get("article_title", "")))
-    r.bold = True
-    r.font.size = Pt(10)
+    _add_banner(doc, "Session Purpose")
+    _add_field_box(doc, "Teaching Goal", title_data.get("teaching_goal", ""), content_font_size=8.8)
 
-    _add_heading(doc, "Session Purpose")
-    _add_small_text(doc, _safe_text(title_data.get("teaching_goal", "")))
-
-    _add_heading(doc, "Article In One View")
-    _add_compact_table(
+    _add_banner(doc, "Article In One View")
+    _add_two_column_value_table(
         doc,
         [
             ("Patient/Problem", _safe_text(pico.get("patient", ""))),
@@ -172,33 +429,32 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
         ],
     )
 
-    _add_heading(doc, "Main Result")
-    _add_small_text(doc, _safe_text(result.get("main_result", "")), "Headline")
-    _add_small_text(doc, _safe_text(result.get("plain_result", "")), "Plain language")
+    _add_banner(doc, "Main Result")
+    _add_field_box(doc, "Headline", result.get("main_result", ""), content_font_size=8.8, content_bold=True)
+    _add_field_box(doc, "Plain Language", result.get("plain_result", ""), content_font_size=8.8)
 
-    _add_heading(doc, "Clinical Bottom Line")
-    _add_small_text(doc, _safe_text(bottom.get("bottom_line", "")))
-    _add_small_text(doc, _safe_text(bottom.get("practice_statement", "")), "Practice implication")
+    _add_banner(doc, "Clinical Bottom Line")
+    _add_field_box(doc, "Clinical Bottom Line", bottom.get("bottom_line", ""), content_font_size=8.8)
+    _add_field_box(doc, "Practice Implication", bottom.get("practice_statement", ""), content_font_size=8.8)
 
-    _add_heading(doc, "Why Trust It / Why Be Cautious")
-    _add_small_text(doc, "Trust Factors", None)
-    _add_bullets(doc, _lines(bottom.get("trust_bullets", ""), limit=3), limit=3)
-    _add_small_text(doc, "Cautions", None)
-    _add_bullets(doc, _lines(bottom.get("caution_bullets", ""), limit=3), limit=3)
+    _add_banner(doc, "Why Trust It / Why Be Cautious")
+    trust_text = _bullet_text(_lines(bottom.get("trust_bullets", ""), limit=3))
+    caution_text = _bullet_text(_lines(bottom.get("caution_bullets", ""), limit=3))
+    _add_two_column_text_boxes(doc, "Trust Factors", trust_text, "Cautions", caution_text)
 
-    _add_heading(doc, "Discussion Questions")
+    _add_banner(doc, "Discussion Questions")
     questions = [
         _safe_text(deck.get("patient_problem", {}).get("discussion_question", "")),
         _safe_text(pico.get("discussion_question", "")),
         _safe_text(result.get("discussion_question", "")),
         _safe_text(deck.get("apply_back", {}).get("return_question", "")),
     ]
-    _add_bullets(doc, [q for q in questions if q], limit=4)
+    _add_field_box(doc, "Questions For Discussion", _bullet_text([q for q in questions if q], limit=4), content_font_size=8.8)
 
-    _add_heading(doc, "Resident Take-Home")
-    _add_small_text(doc, _safe_text(final.get("resident_take_home", "")))
+    _add_banner(doc, "Resident Take-Home")
+    _add_field_box(doc, "Take-Home Sentence", final.get("resident_take_home", ""), content_font_size=8.8)
 
-    #_add_feedback_block(doc)
+    # _add_feedback_block(doc)
 
     output = BytesIO()
     doc.save(output)
@@ -211,62 +467,37 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
 # -----------------------------
 
 
-def _add_review_heading(doc: Document, text: str, level: int = 1) -> None:
-    """Add a readable heading for the mentor review document."""
-    p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(8 if level == 1 else 5)
-    p.paragraph_format.space_after = Pt(3)
-    run = p.add_run(text)
-    run.bold = True
-    run.font.name = "Arial"
-    run.font.size = Pt(15 if level == 1 else 12)
-    run.font.color.rgb = RGBColor(30, 80, 130)
-
-
-def _add_review_paragraph(doc: Document, text: str, font_size: float = 10, italic: bool = False) -> None:
-    p = doc.add_paragraph()
-    p.paragraph_format.space_after = Pt(4)
-    p.paragraph_format.line_spacing = 1.05
-    run = p.add_run(_safe_text(text))
-    run.font.name = "Arial"
-    run.font.size = Pt(font_size)
-    run.italic = italic
-
-
-def _add_review_label(doc: Document, label: str) -> None:
-    p = doc.add_paragraph()
-    p.paragraph_format.space_before = Pt(4)
-    p.paragraph_format.space_after = Pt(1)
-    run = p.add_run(label)
-    run.bold = True
-    run.font.name = "Arial"
-    run.font.size = Pt(10)
-    run.font.color.rgb = RGBColor(30, 80, 130)
+def _add_reviewer_guidelines(doc: Document) -> None:
+    """Add mentor/reviewer instructions at the top of the review document."""
+    _add_banner(doc, "Reviewer Guidelines")
+    guidelines = [
+        "Use Track Changes and/or comments so the resident can see your suggestions.",
+        "Focus on clarity, accuracy, educational value, clinical reasoning, and whether the message is easy to present aloud.",
+        "Avoid stylistic preference edits unless they improve readability, reduce confusion, or make the teaching point clearer.",
+        "Preserve the resident's voice when possible; suggest targeted edits rather than rewriting the entire slide.",
+        "Flag overstatements, missing limitations, unclear applicability, jargon, or places where the clinical takeaway is too broad.",
+        "Keep slide text concise. If content is correct but too dense, suggest what to cut or move to facilitator notes.",
+    ]
+    _add_field_box(doc, "Reviewer Focus", _bullet_text(guidelines), content_font_size=9.0)
+    _add_field_box(
+        doc,
+        "Reviewer Workflow",
+        "Edit the text below directly, or add comments beside sections that need discussion. The goal is not to perfect the slide design; the goal is to help the resident make the content clearer, more accurate, and more useful for learners.",
+        content_font_size=9.0,
+        content_italic=True,
+    )
 
 
 def _add_review_text_block(doc: Document, label: str, text: Any) -> None:
     """Add one editable slide-text field with a clear label."""
-    _add_review_label(doc, label)
-    content = _safe_text(text)
-    if not content:
-        content = "[blank]"
-    for idx, paragraph_text in enumerate(content.splitlines() or [content]):
-        if not paragraph_text.strip():
-            continue
-        p = doc.add_paragraph()
-        p.paragraph_format.left_indent = Inches(0.15)
-        p.paragraph_format.space_after = Pt(2)
-        p.paragraph_format.line_spacing = 1.05
-        run = p.add_run(paragraph_text.strip())
-        run.font.name = "Arial"
-        run.font.size = Pt(10)
+    content = _safe_text(text) or "[blank]"
+    _add_field_box(doc, label, content, content_font_size=9.3)
 
 
 def _add_review_table_block(doc: Document, label: str, rows: Any) -> None:
     """Add a readable editable representation of a slide table."""
-    _add_review_label(doc, label)
     if not isinstance(rows, list) or not rows:
-        _add_review_paragraph(doc, "[blank table]", font_size=10, italic=True)
+        _add_field_box(doc, label, "[blank table]", content_font_size=9.3, content_italic=True)
         return
 
     columns: List[str] = []
@@ -276,63 +507,31 @@ def _add_review_table_block(doc: Document, label: str, rows: Any) -> None:
                 if str(key) not in columns:
                     columns.append(str(key))
     if not columns:
-        _add_review_paragraph(doc, "[blank table]", font_size=10, italic=True)
+        _add_field_box(doc, label, "[blank table]", content_font_size=9.3, content_italic=True)
         return
 
+    _add_banner(doc, label)
     table = doc.add_table(rows=1, cols=len(columns))
-    table.style = "Table Grid"
-    header_cells = table.rows[0].cells
+    _style_table_grid(table)
     for idx, column in enumerate(columns):
-        header_cells[idx].text = column
-        for paragraph in header_cells[idx].paragraphs:
-            for run in paragraph.runs:
-                run.bold = True
-                run.font.name = "Arial"
-                run.font.size = Pt(8.5)
+        cell = table.rows[0].cells[idx]
+        _shade_cell(cell, HEADER_GRAY)
+        _write_cell_text(cell, column.upper(), font_size=8.3, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
 
     for row in rows:
         if not isinstance(row, dict):
             continue
         cells = table.add_row().cells
         for idx, column in enumerate(columns):
-            cells[idx].text = _safe_text(row.get(column, ""))
-            for paragraph in cells[idx].paragraphs:
-                paragraph.paragraph_format.space_after = Pt(0)
-                for run in paragraph.runs:
-                    run.font.name = "Arial"
-                    run.font.size = Pt(8.5)
+            _shade_cell(cells[idx], WHITE)
+            _write_cell_text(cells[idx], _safe_text(row.get(column, "")), font_size=8.3)
 
-    doc.add_paragraph().paragraph_format.space_after = Pt(2)
-
-
-def _add_reviewer_guidelines(doc: Document) -> None:
-    """Add mentor/reviewer instructions at the top of the review document."""
-    _add_review_heading(doc, "Reviewer Guidelines", level=2)
-    guidelines = [
-        "Use Track Changes and/or comments so the resident can see your suggestions.",
-        "Focus on clarity, accuracy, educational value, clinical reasoning, and whether the message is easy to present aloud.",
-        "Avoid stylistic preference edits unless they improve readability, reduce confusion, or make the teaching point clearer.",
-        "Preserve the resident's voice when possible; suggest targeted edits rather than rewriting the entire slide.",
-        "Flag overstatements, missing limitations, unclear applicability, jargon, or places where the clinical takeaway is too broad.",
-        "Keep slide text concise. If content is correct but too dense, suggest what to cut or move to facilitator notes.",
-    ]
-    for item in guidelines:
-        p = doc.add_paragraph()
-        p.paragraph_format.left_indent = Inches(0.22)
-        p.paragraph_format.first_line_indent = Inches(-0.14)
-        p.paragraph_format.space_after = Pt(1)
-        p.paragraph_format.line_spacing = 1.0
-        run = p.add_run(f"• {item}")
-        run.font.name = "Arial"
-        run.font.size = Pt(9.5)
-
-    _add_review_paragraph(
-        doc,
-        "Reviewer workflow: edit the text below directly, or add comments beside sections that need discussion. "
-        "The goal is not to perfect the slide design; the goal is to help the resident make the content clearer, more accurate, and more useful for learners.",
-        font_size=9.5,
-        italic=True,
-    )
+    footer_row = table.add_row().cells
+    # Merge footer across columns by using the first cell text and clearing the rest.
+    footer_row[0].merge(footer_row[-1])
+    _shade_cell(footer_row[0], FOOTER_BLUE)
+    _write_cell_text(footer_row[0], "Editable table text for mentor review", font_size=8.0, bold=True)
+    _add_spacer(doc, 5)
 
 
 def _enable_track_changes(docx_stream: BytesIO) -> BytesIO:
@@ -364,20 +563,20 @@ def _enable_track_changes(docx_stream: BytesIO) -> BytesIO:
 def build_review_text_docx(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     """Build an editable DOCX containing the PowerPoint text for mentor review.
 
-    This is intentionally different from the one-page summary. It includes the
-    full text from the slide-builder fields, organized by slide title, so a
-    mentor can provide tracked edits or comments before the resident finalizes
-    the PowerPoint.
+    This is intentionally different from the summary. It includes the full text
+    from the slide-builder fields, organized by slide title, so a mentor can
+    provide tracked edits or comments before the resident finalizes the
+    PowerPoint. The content is unchanged; the styling is planning-form inspired.
     """
     doc = Document()
     section = doc.sections[0]
     section.orientation = WD_ORIENT.PORTRAIT
     section.page_width = Inches(8.5)
     section.page_height = Inches(11)
-    section.top_margin = Inches(0.65)
-    section.bottom_margin = Inches(0.65)
-    section.left_margin = Inches(0.7)
-    section.right_margin = Inches(0.7)
+    section.top_margin = Inches(0.55)
+    section.bottom_margin = Inches(0.55)
+    section.left_margin = Inches(0.6)
+    section.right_margin = Inches(0.6)
 
     styles = doc.styles
     styles["Normal"].font.name = "Arial"
@@ -387,31 +586,12 @@ def build_review_text_docx(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     session_title = _safe_text(title_data.get("session_title", "Journal Club")) or "Journal Club"
     article_title = _safe_text(title_data.get("article_title", ""))
 
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.space_after = Pt(2)
-    run = p.add_run("Journal Club PowerPoint Text Review")
-    run.bold = True
-    run.font.name = "Arial"
-    run.font.size = Pt(17)
-    run.font.color.rgb = RGBColor(30, 80, 130)
-
-    p = doc.add_paragraph()
-    p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-    p.paragraph_format.space_after = Pt(1)
-    r = p.add_run(session_title)
-    r.bold = True
-    r.font.name = "Arial"
-    r.font.size = Pt(12)
-
-    if article_title:
-        p = doc.add_paragraph()
-        p.alignment = WD_ALIGN_PARAGRAPH.CENTER
-        p.paragraph_format.space_after = Pt(8)
-        r = p.add_run(article_title)
-        r.font.name = "Arial"
-        r.font.size = Pt(10)
-        r.italic = True
+    _add_document_title_block(
+        doc,
+        "PowerPoint Text Review",
+        f"{session_title}\n{article_title}" if article_title else session_title,
+        kicker="JOURNAL CLUB BUILDER",
+    )
 
     _add_reviewer_guidelines(doc)
 
@@ -419,7 +599,7 @@ def build_review_text_docx(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
         slide_id = slide["id"]
         slide_data = deck.get(slide_id, {}) or {}
         slide_title = str(slide.get("export_title") or slide.get("label") or slide_id).strip()
-        _add_review_heading(doc, f"Slide {slide_number}: {slide_title}", level=1)
+        _add_banner(doc, f"Slide {slide_number}: {slide_title}")
 
         for field in slide.get("fields", []):
             # Respect simple show_if conditions so the review file matches the visible app fields.
@@ -438,8 +618,13 @@ def build_review_text_docx(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
             else:
                 _add_review_text_block(doc, field_label, value)
 
-        _add_review_label(doc, "Mentor notes / comments")
-        _add_review_paragraph(doc, "[Add comments here or use Word comments in the margin.]", font_size=9.5, italic=True)
+        _add_field_box(
+            doc,
+            "Mentor notes / comments",
+            "[Add comments here or use Word comments in the margin.]",
+            content_font_size=9.0,
+            content_italic=True,
+        )
 
     output = BytesIO()
     doc.save(output)
