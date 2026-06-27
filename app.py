@@ -1000,7 +1000,7 @@ def render_archive_index() -> None:
             preferred_columns = [
                 "Saved date",
                 "Presenter",
-                "Article title",
+                "Article Title",
                 "Monthly skill",
                 #"Session title",
                 #"Article PDF",
