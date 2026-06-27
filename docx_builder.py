@@ -39,6 +39,66 @@ BORDER = "000000"
 TEXT_DARK = RGBColor(20, 20, 20)
 TEXT_MUTED = RGBColor(95, 95, 95)
 
+EMU_PER_INCH = 914400
+TWIPS_PER_INCH = 1440
+
+
+def _body_width_inches(doc: Document) -> float:
+    """Return the usable page width for the current section, in inches."""
+    section = doc.sections[-1]
+    return float(section.page_width - section.left_margin - section.right_margin) / EMU_PER_INCH
+
+
+def _set_table_fixed_width(table, width_inches: float) -> None:
+    """Lock table width so section banners and content tables line up in Word."""
+    tbl = table._tbl
+    tbl_pr = tbl.tblPr
+    if tbl_pr is None:
+        tbl_pr = OxmlElement("w:tblPr")
+        tbl.insert(0, tbl_pr)
+
+    tbl_w = tbl_pr.find(qn("w:tblW"))
+    if tbl_w is None:
+        tbl_w = OxmlElement("w:tblW")
+        tbl_pr.append(tbl_w)
+    tbl_w.set(qn("w:w"), str(int(width_inches * TWIPS_PER_INCH)))
+    tbl_w.set(qn("w:type"), "dxa")
+
+    tbl_layout = tbl_pr.find(qn("w:tblLayout"))
+    if tbl_layout is None:
+        tbl_layout = OxmlElement("w:tblLayout")
+        tbl_pr.append(tbl_layout)
+    tbl_layout.set(qn("w:type"), "fixed")
+
+
+def _set_cell_width(cell, width_inches: float) -> None:
+    """Set cell width at both python-docx and OOXML levels."""
+    cell.width = Inches(width_inches)
+    tc_pr = cell._tc.get_or_add_tcPr()
+    tc_w = tc_pr.find(qn("w:tcW"))
+    if tc_w is None:
+        tc_w = OxmlElement("w:tcW")
+        tc_pr.append(tc_w)
+    tc_w.set(qn("w:w"), str(int(width_inches * TWIPS_PER_INCH)))
+    tc_w.set(qn("w:type"), "dxa")
+
+
+def _lock_table_widths(table, widths: List[float]) -> None:
+    """Apply a fixed table layout and fixed column widths to every row."""
+    total_width = sum(widths)
+    table.autofit = False
+    table.allow_autofit = False
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _set_table_fixed_width(table, total_width)
+    for idx, width in enumerate(widths):
+        if idx < len(table.columns):
+            table.columns[idx].width = Inches(width)
+    for row in table.rows:
+        for idx, width in enumerate(widths):
+            if idx < len(row.cells):
+                _set_cell_width(row.cells[idx], width)
+
+
 
 # -----------------------------
 # Basic text helpers
@@ -170,7 +230,8 @@ def _write_cell_text(
 def _style_table_grid(table) -> None:
     table.style = "Table Grid"
     table.alignment = WD_TABLE_ALIGNMENT.CENTER
-    table.autofit = True
+    table.autofit = False
+    table.allow_autofit = False
     for row in table.rows:
         for cell in row.cells:
             _set_cell_borders(cell)
@@ -178,11 +239,8 @@ def _style_table_grid(table) -> None:
 
 
 def _set_table_widths(table, widths: List[float]) -> None:
-    """Best-effort table column widths in inches."""
-    for row in table.rows:
-        for idx, width in enumerate(widths):
-            if idx < len(row.cells):
-                row.cells[idx].width = Inches(width)
+    """Lock table and column widths in inches."""
+    _lock_table_widths(table, widths)
 
 
 def _add_spacer(doc: Document, pts: float = 4) -> None:
@@ -195,6 +253,7 @@ def _add_banner(doc: Document, text: str) -> None:
     """Blue full-width section header, matching the planning worksheet."""
     table = doc.add_table(rows=1, cols=1)
     _style_table_grid(table)
+    _set_table_widths(table, [_body_width_inches(doc)])
     cell = table.cell(0, 0)
     _shade_cell(cell, BLUE)
     _write_cell_text(
@@ -226,6 +285,7 @@ def _add_document_title_block(doc: Document, title: str, subtitle: str = "", kic
         _shade_cell(cell, WHITE)
         _write_cell_text(cell, subtitle, font_size=9.5, italic=True, align=WD_ALIGN_PARAGRAPH.CENTER)
 
+    _set_table_widths(table, [_body_width_inches(doc)])
     _add_spacer(doc, 8)
 
 
@@ -269,12 +329,16 @@ def _add_field_box(
         _shade_cell(footer_cell, FOOTER_BLUE)
         _write_cell_text(footer_cell, _safe_text(footer).upper(), font_size=8.2, bold=True)
 
+    _set_table_widths(table, [_body_width_inches(doc)])
     _add_spacer(doc, 5)
 
 
-def _add_two_column_value_table(doc: Document, rows: List[tuple[str, str]], *, label_width: float = 1.65, value_width: float = 5.7) -> None:
+def _add_two_column_value_table(doc: Document, rows: List[tuple[str, str]], *, label_width: float = 1.65, value_width: float | None = None) -> None:
     table = doc.add_table(rows=0, cols=2)
     _style_table_grid(table)
+    total_width = _body_width_inches(doc)
+    if value_width is None:
+        value_width = max(1.0, total_width - label_width)
     for label, value in rows:
         cells = table.add_row().cells
         _shade_cell(cells[0], HEADER_GRAY)
@@ -299,7 +363,8 @@ def _add_two_column_text_boxes(doc: Document, left_label: str, left_text: str, r
         _shade_cell(cell, WHITE)
         _write_cell_text(cell, text or "[blank]", font_size=8.5, line_spacing=1.0)
 
-    _set_table_widths(table, [3.65, 3.65])
+    total_width = _body_width_inches(doc)
+    _set_table_widths(table, [total_width / 2, total_width / 2])
     _add_spacer(doc, 5)
 
 
@@ -334,6 +399,8 @@ def _add_editable_table(doc: Document, label: str, rows: Any) -> None:
         for idx, column in enumerate(columns):
             _shade_cell(cells[idx], WHITE)
             _write_cell_text(cells[idx], _safe_text(row.get(column, "")), font_size=8.2)
+    col_width = _body_width_inches(doc) / max(1, len(columns))
+    _set_table_widths(table, [col_width] * len(columns))
     _add_spacer(doc, 5)
 
 
@@ -531,6 +598,8 @@ def _add_review_table_block(doc: Document, label: str, rows: Any) -> None:
     footer_row[0].merge(footer_row[-1])
     _shade_cell(footer_row[0], FOOTER_BLUE)
     _write_cell_text(footer_row[0], "Editable table text for mentor review", font_size=8.0, bold=True)
+    col_width = _body_width_inches(doc) / max(1, len(columns))
+    _set_table_widths(table, [col_width] * len(columns))
     _add_spacer(doc, 5)
 
 
