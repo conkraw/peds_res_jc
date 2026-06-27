@@ -243,29 +243,6 @@ def _set_table_widths(table, widths: List[float]) -> None:
     _lock_table_widths(table, widths)
 
 
-def _pop_pending_banner(doc: Document) -> str:
-    """Return and clear a pending section banner.
-
-    Word can show a small visual gap between two separate consecutive tables
-    even when paragraph spacing is zero. To make the blue section header touch
-    the first content box, _add_banner stores the text and the next table helper
-    inserts it as the first row of the same table.
-    """
-    banner = str(getattr(doc, "_jc_pending_banner", "") or "").strip()
-    setattr(doc, "_jc_pending_banner", "")
-    return banner
-
-
-def _add_banner(doc: Document, text: str) -> None:
-    """Queue a blue section header to be inserted into the next table.
-
-    This avoids the small gap Microsoft Word can display between separate
-    consecutive tables. The following helper (_add_field_box,
-    _add_two_column_value_table, etc.) will consume this value and place the
-    banner as the first row of the same table as the content.
-    """
-    setattr(doc, "_jc_pending_banner", _safe_text(text))
-
 def _add_spacer(doc: Document, pts: float = 4) -> None:
     p = doc.add_paragraph()
     p.paragraph_format.space_after = Pt(pts)
@@ -328,21 +305,15 @@ def _add_field_box(
     keep_blank: bool = True,
 ) -> None:
     """Planning-form style field: gray label row, white content row, optional pale-blue footer."""
-    banner = _pop_pending_banner(doc)
-    rows = (1 if banner else 0) + (3 if footer else 2)
+    rows = 3 if footer else 2
     table = doc.add_table(rows=rows, cols=1)
     _style_table_grid(table)
 
-    row_idx = 0
-    if banner:
-        _add_banner_row(table, banner)
-        row_idx = 1
-
-    label_cell = table.cell(row_idx, 0)
+    label_cell = table.cell(0, 0)
     _shade_cell(label_cell, HEADER_GRAY)
     _write_cell_text(label_cell, _safe_text(label).upper(), font_size=label_font_size, bold=True)
 
-    content_cell = table.cell(row_idx + 1, 0)
+    content_cell = table.cell(1, 0)
     _shade_cell(content_cell, WHITE)
     content = _safe_text(text)
     if not content and keep_blank:
@@ -357,24 +328,20 @@ def _add_field_box(
     )
 
     if footer:
-        footer_cell = table.cell(row_idx + 2, 0)
+        footer_cell = table.cell(2, 0)
         _shade_cell(footer_cell, FOOTER_BLUE)
         _write_cell_text(footer_cell, _safe_text(footer).upper(), font_size=8.2, bold=True)
 
     _set_table_widths(table, [_body_width_inches(doc)])
     _add_spacer(doc, 5)
 
+
 def _add_two_column_value_table(doc: Document, rows: List[tuple[str, str]], *, label_width: float = 1.65, value_width: float | None = None) -> None:
-    banner = _pop_pending_banner(doc)
-    table = doc.add_table(rows=1 if banner else 0, cols=2)
+    table = doc.add_table(rows=0, cols=2)
     _style_table_grid(table)
     total_width = _body_width_inches(doc)
     if value_width is None:
         value_width = max(1.0, total_width - label_width)
-
-    if banner:
-        _add_banner_row(table, banner)
-
     for label, value in rows:
         cells = table.add_row().cells
         _shade_cell(cells[0], HEADER_GRAY)
@@ -384,18 +351,74 @@ def _add_two_column_value_table(doc: Document, rows: List[tuple[str, str]], *, l
     _set_table_widths(table, [label_width, value_width])
     _add_spacer(doc, 5)
 
-def _add_two_column_text_boxes(doc: Document, left_label: str, left_text: str, right_label: str, right_text: str) -> None:
-    banner = _pop_pending_banner(doc)
-    table = doc.add_table(rows=(3 if banner else 2), cols=2)
+
+def _add_banner_two_column_value_table(
+    doc: Document,
+    banner: str,
+    rows: List[tuple[str, str]],
+    *,
+    label_width: float = 1.65,
+    value_width: float | None = None,
+) -> None:
+    """Add a blue section banner and a two-column content table as one Word table.
+
+    This avoids the tiny left/right alignment drift Word can show when a
+    full-width banner table is immediately followed by a separate two-column
+    table. It is used for sections such as Article In One View where the
+    content underneath has two columns.
+    """
+    total_width = _body_width_inches(doc)
+    if value_width is None:
+        value_width = max(1.0, total_width - label_width)
+
+    table = doc.add_table(rows=1, cols=2)
     _style_table_grid(table)
+    table.autofit = False
+    table.allow_autofit = False
+    table.alignment = WD_TABLE_ALIGNMENT.CENTER
+    _set_table_fixed_width(table, total_width)
 
-    row_offset = 0
-    if banner:
-        _add_banner_row(table, banner)
-        row_offset = 1
+    # Header row: merge both columns so the blue banner shares the exact same
+    # table grid and outer borders as the rows below.
+    header_cell = table.rows[0].cells[0].merge(table.rows[0].cells[1])
+    _shade_cell(header_cell, BLUE)
+    _set_cell_borders(header_cell)
+    _set_cell_margins(header_cell, top=45, start=80, bottom=45, end=80)
+    _set_cell_width(header_cell, total_width)
+    _write_cell_text(
+        header_cell,
+        _safe_text(banner).upper(),
+        font_size=10.5,
+        bold=True,
+        color=RGBColor(255, 255, 255),
+        align=WD_ALIGN_PARAGRAPH.CENTER,
+    )
 
-    headers = table.rows[row_offset].cells
-    bodies = table.rows[row_offset + 1].cells
+    for label, value in rows:
+        cells = table.add_row().cells
+        _shade_cell(cells[0], HEADER_GRAY)
+        _shade_cell(cells[1], WHITE)
+        _set_cell_width(cells[0], label_width)
+        _set_cell_width(cells[1], value_width)
+        _write_cell_text(cells[0], _safe_text(label).upper(), font_size=8.5, bold=True)
+        _write_cell_text(cells[1], _safe_text(value), font_size=8.6)
+
+    # Lock column widths after all rows exist. Skip the merged header row so
+    # Word does not try to split the banner cell.
+    table.columns[0].width = Inches(label_width)
+    table.columns[1].width = Inches(value_width)
+    for row in table.rows[1:]:
+        _set_cell_width(row.cells[0], label_width)
+        _set_cell_width(row.cells[1], value_width)
+
+    _add_spacer(doc, 5)
+
+
+def _add_two_column_text_boxes(doc: Document, left_label: str, left_text: str, right_label: str, right_text: str) -> None:
+    table = doc.add_table(rows=2, cols=2)
+    _style_table_grid(table)
+    headers = table.rows[0].cells
+    bodies = table.rows[1].cells
 
     for cell, label in zip(headers, [left_label, right_label]):
         _shade_cell(cell, HEADER_GRAY)
@@ -408,6 +431,7 @@ def _add_two_column_text_boxes(doc: Document, left_label: str, left_text: str, r
     total_width = _body_width_inches(doc)
     _set_table_widths(table, [total_width / 2, total_width / 2])
     _add_spacer(doc, 5)
+
 
 def _add_editable_table(doc: Document, label: str, rows: Any) -> None:
     """Add a readable editable representation of a slide table."""
@@ -426,17 +450,10 @@ def _add_editable_table(doc: Document, label: str, rows: Any) -> None:
         _add_field_box(doc, "Table", "[blank table]", content_italic=True)
         return
 
-    banner = _pop_pending_banner(doc)
-    table = doc.add_table(rows=(2 if banner else 1), cols=len(columns))
+    table = doc.add_table(rows=1, cols=len(columns))
     _style_table_grid(table)
-
-    header_row_idx = 0
-    if banner:
-        _add_banner_row(table, banner)
-        header_row_idx = 1
-
     for idx, column in enumerate(columns):
-        cell = table.rows[header_row_idx].cells[idx]
+        cell = table.rows[0].cells[idx]
         _shade_cell(cell, HEADER_GRAY)
         _write_cell_text(cell, column.upper(), font_size=8.2, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
 
@@ -450,6 +467,7 @@ def _add_editable_table(doc: Document, label: str, rows: Any) -> None:
     col_width = _body_width_inches(doc) / max(1, len(columns))
     _set_table_widths(table, [col_width] * len(columns))
     _add_spacer(doc, 5)
+
 
 # -----------------------------
 # QR / feedback helpers
@@ -532,9 +550,9 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
     _add_banner(doc, "Session Purpose")
     _add_field_box(doc, "Teaching Goal", title_data.get("teaching_goal", ""), content_font_size=8.8)
 
-    _add_banner(doc, "Article In One View")
-    _add_two_column_value_table(
+    _add_banner_two_column_value_table(
         doc,
+        "Article In One View",
         [
             ("Patient/Problem", _safe_text(pico.get("patient", ""))),
             ("Study Question", _safe_text(pico.get("plain_question", ""))),
@@ -625,17 +643,10 @@ def _add_review_table_block(doc: Document, label: str, rows: Any) -> None:
         return
 
     _add_banner(doc, label)
-    banner = _pop_pending_banner(doc)
-    table = doc.add_table(rows=(2 if banner else 1), cols=len(columns))
+    table = doc.add_table(rows=1, cols=len(columns))
     _style_table_grid(table)
-
-    header_row_idx = 0
-    if banner:
-        _add_banner_row(table, banner)
-        header_row_idx = 1
-
     for idx, column in enumerate(columns):
-        cell = table.rows[header_row_idx].cells[idx]
+        cell = table.rows[0].cells[idx]
         _shade_cell(cell, HEADER_GRAY)
         _write_cell_text(cell, column.upper(), font_size=8.3, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
 
@@ -648,12 +659,14 @@ def _add_review_table_block(doc: Document, label: str, rows: Any) -> None:
             _write_cell_text(cells[idx], _safe_text(row.get(column, "")), font_size=8.3)
 
     footer_row = table.add_row().cells
+    # Merge footer across columns by using the first cell text and clearing the rest.
     footer_row[0].merge(footer_row[-1])
     _shade_cell(footer_row[0], FOOTER_BLUE)
     _write_cell_text(footer_row[0], "Editable table text for mentor review", font_size=8.0, bold=True)
     col_width = _body_width_inches(doc) / max(1, len(columns))
     _set_table_widths(table, [col_width] * len(columns))
     _add_spacer(doc, 5)
+
 
 def _enable_track_changes(docx_stream: BytesIO) -> BytesIO:
     """Turn on Word track-revisions setting for the generated review document.
