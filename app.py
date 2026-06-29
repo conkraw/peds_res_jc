@@ -95,7 +95,7 @@ def delete_passcode_is_valid(passcode: str) -> bool:
 
 def initialize_state() -> None:
     if "deck" not in st.session_state:
-        st.session_state.deck = make_default_deck()
+        st.session_state.deck = make_blank_deck()
     if "selected_slide_id" not in st.session_state:
         st.session_state.selected_slide_id = SLIDES[0]["id"]
     if "include_facilitator_notes" not in st.session_state:
@@ -1059,7 +1059,22 @@ def render_archive_controls(deck: Dict[str, Dict[str, Any]]) -> None:
         render_github_recovery()
     elif panel == "index":
         render_archive_index()
-
+        
+def make_blank_deck() -> Dict[str, Dict[str, Any]]:
+    deck = make_default_deck()
+    for slide in SLIDES:
+        for field in slide["fields"]:
+            field_key = field["key"]
+            if field.get("type") == "table":
+                deck[slide["id"]][field_key] = []
+            elif field.get("type") == "number":
+                deck[slide["id"]][field_key] = field.get("default", 0)
+            elif field.get("type") == "select":
+                deck[slide["id"]][field_key] = field.get("default", field.get("options", [""])[0])
+            else:
+                deck[slide["id"]][field_key] = ""
+    return deck
+    
 def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     problems = validate_deck(deck)
     timestamp = datetime.now().strftime("%Y%m%d")
@@ -1110,6 +1125,8 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
 
     #st.divider()
     #render_archive_controls(deck)
+
+
 
 
 # -----------------------------
@@ -1198,7 +1215,7 @@ def main() -> None:
                     st.rerun()
 
                 if st.button("Clear All Fields", key="clear_all_fields_button", use_container_width=True):
-                    st.session_state.deck = make_default_deck()
+                    st.session_state.deck = make_blank_deck()
                     st.session_state.saved_article = {}
                     st.session_state.archive_id = ""
                     st.session_state.archive_path = ""
