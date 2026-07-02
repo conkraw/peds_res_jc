@@ -41,8 +41,16 @@ PROJECT_VERSION = "0.2.6"
 
 CUSTOM_SLIDES_KEY = "_custom_slides"
 MAX_CUSTOM_SLIDES = 2
+DEFAULT_CUSTOM_SLIDE_INSERT_AFTER = "final_bottom_line"
 
 CUSTOM_SLIDE_FIELDS: List[Dict[str, Any]] = [
+    {
+        "key": "insert_after",
+        "label": "Place optional slide after",
+        "type": "placement",
+        "required": True,
+        "guide": "Choose where this optional slide should appear in the exported PowerPoint.",
+    },
     {
         "key": "title",
         "label": "Optional slide title",
@@ -183,10 +191,52 @@ def get_custom_slides(deck: Dict[str, Any]) -> List[Dict[str, Any]]:
     return custom_slides
 
 
-def make_new_custom_slide() -> Dict[str, Any]:
+
+def core_slide_ids() -> List[str]:
+    """Return valid core slide IDs for optional-slide placement."""
+    return [slide["id"] for slide in SLIDES]
+
+
+def normalize_custom_slide_position(value: Any) -> str:
+    """Return a safe core slide ID for optional-slide placement."""
+    candidate = str(value or "").strip()
+    if candidate in core_slide_ids():
+        return candidate
+    return DEFAULT_CUSTOM_SLIDE_INSERT_AFTER
+
+
+def custom_slide_insert_after(custom_slide: Dict[str, Any]) -> str:
+    """Return the core slide ID after which this optional slide should appear."""
+    return normalize_custom_slide_position(custom_slide.get("insert_after"))
+
+
+def default_insert_after_for_new_custom_slide(deck: Dict[str, Any]) -> str:
+    """Default a new optional slide to appear after the currently selected slide when possible."""
+    selected_id = str(st.session_state.get("selected_slide_id", "") or "")
+    if selected_id in core_slide_ids():
+        return selected_id
+    for custom_slide in get_custom_slides(deck):
+        if str(custom_slide.get("id", "")) == selected_id:
+            return custom_slide_insert_after(custom_slide)
+    return DEFAULT_CUSTOM_SLIDE_INSERT_AFTER
+
+
+def ordered_custom_slides(deck: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return optional slides in the same order they will export in PowerPoint."""
+    custom_slides = get_custom_slides(deck)
+    ordered: List[Dict[str, Any]] = []
+    for core_slide in SLIDES:
+        core_id = core_slide["id"]
+        for custom_slide in custom_slides:
+            if custom_slide_insert_after(custom_slide) == core_id:
+                ordered.append(custom_slide)
+    return ordered
+
+def make_new_custom_slide(insert_after: str | None = None) -> Dict[str, Any]:
     """Create one blank optional slide record."""
     return {
         "id": f"custom_{uuid.uuid4().hex[:8]}",
+        "insert_after": normalize_custom_slide_position(insert_after),
         "title": "",
         "body": "",
         "reason": "",
@@ -197,6 +247,7 @@ def normalize_custom_slide(raw: Dict[str, Any]) -> Dict[str, Any]:
     """Normalize older or partial optional slide records."""
     return {
         "id": str(raw.get("id") or f"custom_{uuid.uuid4().hex[:8]}").strip(),
+        "insert_after": normalize_custom_slide_position(raw.get("insert_after") or raw.get("after_slide_id")),
         "title": str(raw.get("title") or "").strip(),
         "body": str(raw.get("body") or "").strip(),
         "reason": str(raw.get("reason") or "").strip(),
@@ -217,10 +268,18 @@ def make_custom_slide_schema(custom_slide: Dict[str, Any], index: int) -> Dict[s
 
 
 def get_navigation_slides(deck: Dict[str, Any]) -> List[Dict[str, Any]]:
-    """Return core slides plus optional slides for sidebar navigation."""
-    navigation_slides = list(SLIDES)
-    for idx, custom_slide in enumerate(get_custom_slides(deck), start=1):
-        navigation_slides.append(make_custom_slide_schema(custom_slide, idx))
+    """Return core slides plus optional slides in their selected export position."""
+    navigation_slides: List[Dict[str, Any]] = []
+    custom_slides = get_custom_slides(deck)
+
+    for core_slide in SLIDES:
+        navigation_slides.append(core_slide)
+        for stored_index, custom_slide in enumerate(custom_slides, start=1):
+            if custom_slide_insert_after(custom_slide) == core_slide["id"]:
+                # Keep the optional-slide number stable by creation order, even
+                # when the slide is moved earlier/later in the deck.
+                navigation_slides.append(make_custom_slide_schema(custom_slide, stored_index))
+
     return navigation_slides
 
 
@@ -286,6 +345,19 @@ def slide_display_title(slide: Dict[str, Any]) -> str:
     'Opening Case: Opening patient case'.
     """
     return str(slide.get("export_title") or slide.get("label") or "Untitled slide").strip()
+
+def core_slide_position_label(slide_id: str) -> str:
+    """Human-readable label for optional-slide placement."""
+    safe_id = normalize_custom_slide_position(slide_id)
+    for slide in SLIDES:
+        if slide["id"] == safe_id:
+            return f"After {nav_label(slide)}"
+    return "After Final Bottom Line"
+
+
+def core_slide_position_options() -> List[str]:
+    """Core slide IDs used by the optional-slide placement selectbox."""
+    return [slide["id"] for slide in SLIDES]
 
 
 def field_is_visible(slide_data: Dict[str, Any], field: Dict[str, Any]) -> bool:
@@ -477,6 +549,25 @@ def render_number_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[s
     return value
 
 
+def render_placement_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any]) -> Any:
+    """Render the optional-slide placement selector with friendly labels."""
+    key = field["key"]
+    options = core_slide_position_options()
+    current = normalize_custom_slide_position(slide_data.get(key, DEFAULT_CUSTOM_SLIDE_INSERT_AFTER))
+    widget_key = f"widget__{slide_id}__{key}"
+
+    value = st.selectbox(
+        field["label"],
+        options=options,
+        index=options.index(current) if current in options else options.index(DEFAULT_CUSTOM_SLIDE_INSERT_AFTER),
+        key=widget_key,
+        help=field.get("guide"),
+        format_func=core_slide_position_label,
+    )
+    slide_data[key] = value
+    return value
+
+
 def render_select_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any]) -> Any:
     key = field["key"]
     options = field.get("options", [])
@@ -642,6 +733,8 @@ def render_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[str, Any
         value = render_number_field(slide_id, slide_data, field)
     elif ftype == "select":
         value = render_select_field(slide_id, slide_data, field)
+    elif ftype == "placement":
+        value = render_placement_field(slide_id, slide_data, field)
     elif ftype == "table":
         value = render_table_field(slide_id, slide_data, field)
     else:
@@ -676,6 +769,8 @@ def render_slide_preview(slide: Dict[str, Any], slide_data: Dict[str, Any]) -> N
             st.dataframe(pd.DataFrame(value), hide_index=True, use_container_width=True)
         elif field["type"] == "select":
             st.caption(f"{field['label']}: {value}")
+        elif field["type"] == "placement":
+            st.caption(f"{field['label']}: {core_slide_position_label(value)}")
         else:
             st.markdown(f"**{field['label']}**")
             if field["type"] == "textarea":
@@ -1342,7 +1437,7 @@ def main() -> None:
             disabled=len(custom_slides) >= MAX_CUSTOM_SLIDES,
             use_container_width=True,
         ):
-            new_slide = make_new_custom_slide()
+            new_slide = make_new_custom_slide(default_insert_after_for_new_custom_slide(st.session_state.deck))
             custom_slides.append(new_slide)
             request_slide_selection(new_slide["id"], f"Optional Slide {len(custom_slides)}")
             clear_widget_state()
@@ -1432,7 +1527,7 @@ def main() -> None:
 
             if selected_slide.get("is_custom"):
                 st.info(
-                    "This optional slide will export after the core journal club slides and before the appendix/feedback slides. "
+                    f"This optional slide will export {core_slide_position_label(selected_slide_data.get('insert_after')).lower()}. "
                     "Use it only when the standard slide set does not cover an important teaching point."
                 )
                 if st.button(

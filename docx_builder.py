@@ -44,6 +44,7 @@ DOC_FONT = "Calibri"
 # physically connected to the box/table directly under them.
 SECTION_GAP_PT = 8
 CUSTOM_SLIDES_KEY = "_custom_slides"
+DEFAULT_CUSTOM_SLIDE_INSERT_AFTER = "final_bottom_line"
 
 EMU_PER_INCH = 914400
 TWIPS_PER_INCH = 1440
@@ -144,6 +145,28 @@ def _first_line(value: Any) -> str:
 def _lines(value: Any, limit: int | None = None) -> List[str]:
     lines = [line.strip() for line in _safe_text(value).splitlines() if line.strip()]
     return lines[:limit] if limit else lines
+
+def _core_slide_ids() -> List[str]:
+    return [slide["id"] for slide in SLIDES]
+
+
+def _normalize_custom_slide_position(value: Any) -> str:
+    candidate = str(value or "").strip()
+    if candidate in _core_slide_ids():
+        return candidate
+    return DEFAULT_CUSTOM_SLIDE_INSERT_AFTER
+
+
+def _custom_slide_insert_after(custom_slide: Dict[str, Any]) -> str:
+    return _normalize_custom_slide_position(custom_slide.get("insert_after") or custom_slide.get("after_slide_id"))
+
+
+def _core_slide_label(slide_id: str) -> str:
+    for slide in SLIDES:
+        if slide.get("id") == slide_id:
+            return str(slide.get("export_title") or slide.get("label") or slide_id)
+    return "Final Bottom Line"
+
 
 
 def _bullet_text(items: Iterable[str], limit: int | None = None) -> str:
@@ -764,6 +787,10 @@ def build_review_text_docx(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
 
     _add_reviewer_guidelines(doc)
 
+    custom_slides = deck.get(CUSTOM_SLIDES_KEY, [])
+    custom_slides = custom_slides if isinstance(custom_slides, list) else []
+    optional_index = 0
+
     for slide_number, slide in enumerate(SLIDES, start=1):
         slide_id = slide["id"]
         slide_data = deck.get(slide_id, {}) or {}
@@ -795,13 +822,16 @@ def build_review_text_docx(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
             content_italic=True,
         )
 
-    custom_slides = deck.get(CUSTOM_SLIDES_KEY, [])
-    if isinstance(custom_slides, list):
-        for idx, custom_slide in enumerate(custom_slides, start=1):
+        for custom_slide in custom_slides:
             if not isinstance(custom_slide, dict):
                 continue
-            title = _safe_text(custom_slide.get("title")) or f"Optional Slide {idx}"
-            _add_banner(doc, f"Optional Slide {idx}: {title}")
+            if _custom_slide_insert_after(custom_slide) != slide_id:
+                continue
+            optional_index += 1
+            title = _safe_text(custom_slide.get("title")) or f"Optional Slide {optional_index}"
+            placement = _core_slide_label(slide_id)
+            _add_banner(doc, f"Optional Slide {optional_index}: {title}")
+            _add_field_box(doc, "Placement", f"After {placement}", content_font_size=9.3)
             _add_field_box(doc, "Optional slide title", title, content_font_size=9.3)
             _add_field_box(doc, "Main slide text", custom_slide.get("body", ""), content_font_size=9.3)
             _add_field_box(

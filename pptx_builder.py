@@ -39,6 +39,7 @@ COLOR_WARNING_LIGHT = RGBColor(250, 238, 218)
 SLIDE_W = 13.333
 SLIDE_H = 7.5
 CUSTOM_SLIDES_KEY = "_custom_slides"
+DEFAULT_CUSTOM_SLIDE_INSERT_AFTER = "final_bottom_line"
 
 
 def _safe_text(value: Any) -> str:
@@ -49,6 +50,39 @@ def _safe_text(value: Any) -> str:
 
 def _lines(value: Any) -> List[str]:
     return [line.strip() for line in _safe_text(value).splitlines() if line.strip()]
+
+def _core_slide_ids() -> List[str]:
+    return [slide["id"] for slide in SLIDES]
+
+
+def _normalize_custom_slide_position(value: Any) -> str:
+    candidate = str(value or "").strip()
+    if candidate in _core_slide_ids():
+        return candidate
+    return DEFAULT_CUSTOM_SLIDE_INSERT_AFTER
+
+
+def _custom_slide_insert_after(custom_slide: Dict[str, Any]) -> str:
+    return _normalize_custom_slide_position(custom_slide.get("insert_after") or custom_slide.get("after_slide_id"))
+
+
+def _core_slide_label(slide_id: str) -> str:
+    for slide in SLIDES:
+        if slide.get("id") == slide_id:
+            return str(slide.get("export_title") or slide.get("label") or slide_id)
+    return "Final Bottom Line"
+
+
+def _ordered_custom_slides_after(deck: Dict[str, Any], slide_id: str) -> List[Dict[str, Any]]:
+    custom_slides = deck.get(CUSTOM_SLIDES_KEY, [])
+    if not isinstance(custom_slides, list):
+        return []
+    return [
+        custom_slide
+        for custom_slide in custom_slides
+        if isinstance(custom_slide, dict) and _custom_slide_insert_after(custom_slide) == slide_id
+    ]
+
 
 def estimate_textbox_height(
     text: Any,
@@ -797,13 +831,19 @@ def build_facilitator_notes_slide(prs, deck):
 
     custom_slides = deck.get(CUSTOM_SLIDES_KEY, [])
     if isinstance(custom_slides, list):
-        for idx, custom_slide in enumerate(custom_slides, start=1):
-            if not isinstance(custom_slide, dict):
-                continue
-            reason = _safe_text(custom_slide.get("reason"))
-            title = _safe_text(custom_slide.get("title")) or f"Optional Slide {idx}"
-            if reason:
-                notes.append(f"Optional slide {idx} ({title}): {reason}")
+        optional_index = 0
+        for core_slide in SLIDES:
+            for custom_slide in custom_slides:
+                if not isinstance(custom_slide, dict):
+                    continue
+                if _custom_slide_insert_after(custom_slide) != core_slide["id"]:
+                    continue
+                optional_index += 1
+                reason = _safe_text(custom_slide.get("reason"))
+                title = _safe_text(custom_slide.get("title")) or f"Optional Slide {optional_index}"
+                if reason:
+                    placement = _core_slide_label(core_slide["id"])
+                    notes.append(f"Optional slide {optional_index} after {placement} ({title}): {reason}")
 
     add_bullets(slide, 0.85, 1.25, 11.6, 5.25, notes, font_size=15)
     add_footer(slide)
@@ -815,23 +855,27 @@ def build_powerpoint(deck: Dict[str, Dict[str, Any]], include_facilitator_notes:
     prs.slide_width = Inches(SLIDE_W)
     prs.slide_height = Inches(SLIDE_H)
 
-    build_title_goal_slide(prs, deck)
-    build_opening_case_slide(prs, deck)
-    build_patient_problem_slide(prs, deck)
-    build_pico_slide(prs, deck)
-    build_study_design_slide(prs, deck)
-    build_main_result_slide(prs, deck)
-    build_clinical_bottom_line_slide(prs, deck)
-    build_paper_framework_slide(prs, deck)
-    build_month_skill_slide(prs, deck)
-    build_apply_back_slide(prs, deck)
-    build_final_bottom_line_slide(prs, deck)
+    core_builders = [
+        ("title_goal", build_title_goal_slide),
+        ("opening_case", build_opening_case_slide),
+        ("patient_problem", build_patient_problem_slide),
+        ("pico", build_pico_slide),
+        ("study_design", build_study_design_slide),
+        ("main_result", build_main_result_slide),
+        ("clinical_bottom_line", build_clinical_bottom_line_slide),
+        ("paper_framework", build_paper_framework_slide),
+        ("month_skill", build_month_skill_slide),
+        ("apply_back", build_apply_back_slide),
+        ("final_bottom_line", build_final_bottom_line_slide),
+    ]
 
-    custom_slides = deck.get(CUSTOM_SLIDES_KEY, [])
-    if isinstance(custom_slides, list):
-        for idx, custom_slide in enumerate(custom_slides, start=1):
-            if isinstance(custom_slide, dict) and _safe_text(custom_slide.get("body")):
-                build_custom_slide(prs, custom_slide, idx)
+    optional_index = 0
+    for slide_id, builder in core_builders:
+        builder(prs, deck)
+        for custom_slide in _ordered_custom_slides_after(deck, slide_id):
+            if _safe_text(custom_slide.get("body")):
+                optional_index += 1
+                build_custom_slide(prs, custom_slide, optional_index)
 
     if include_facilitator_notes:
         build_facilitator_notes_slide(prs, deck)
