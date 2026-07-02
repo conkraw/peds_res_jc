@@ -169,6 +169,8 @@ def initialize_state() -> None:
         st.session_state.archive_index_warnings = []
     if "archive_index_loaded" not in st.session_state:
         st.session_state.archive_index_loaded = False
+    if "_slide_radio_version" not in st.session_state:
+        st.session_state._slide_radio_version = 0
 
 
 
@@ -235,7 +237,6 @@ def get_selected_slide_and_data(deck: Dict[str, Any]) -> tuple[Dict[str, Any], D
             return make_custom_slide_schema(custom_slide, idx), custom_slide
 
     st.session_state.selected_slide_id = SLIDES[0]["id"]
-    st.session_state.selected_slide_label = nav_label(SLIDES[0])
     return SLIDES[0], deck[SLIDES[0]["id"]]
 
 
@@ -245,6 +246,19 @@ def remove_custom_slide(deck: Dict[str, Any], slide_id: str) -> None:
         slide for slide in get_custom_slides(deck)
         if slide.get("id") != slide_id
     ]
+
+
+def request_slide_selection(slide_id: str, slide_label: str = "") -> None:
+    """Select a slide on the next rerun without touching a widget-backed key.
+
+    Streamlit does not allow assigning to a radio widget's session_state key
+    after that widget has been created. To avoid that error, we store only the
+    internal selected_slide_id and bump a radio-version counter. On the next
+    rerun, the radio gets a fresh key and uses selected_slide_id to choose its
+    default index.
+    """
+    st.session_state.selected_slide_id = slide_id
+    st.session_state._slide_radio_version = int(st.session_state.get("_slide_radio_version", 0) or 0) + 1
 
 def nav_label(slide: Dict[str, Any]) -> str:
     """Short, user-friendly labels for the sidebar only."""
@@ -300,17 +314,13 @@ def parse_table_columns(raw_columns: Any) -> List[str]:
 
 
 def sync_selected_slide() -> None:
-    """Update the selected slide before the rest of the page renders.
-
-    Streamlit reruns the script after each widget interaction. Using an
-    on_change callback prevents the sidebar radio button from feeling like it
-    needs a second click, especially after editing text/table widgets.
-    """
+    """Update the selected slide from the sidebar radio selection."""
     label_to_id = {
         nav_label(slide): slide["id"]
         for slide in get_navigation_slides(st.session_state.deck)
     }
-    selected_label = st.session_state.get("selected_slide_label")
+    radio_key = st.session_state.get("_slide_radio_key", "")
+    selected_label = st.session_state.get(radio_key)
     if selected_label in label_to_id:
         st.session_state.selected_slide_id = label_to_id[selected_label]
 
@@ -1302,21 +1312,23 @@ def main() -> None:
         id_to_label = {slide["id"]: nav_label(slide) for slide in navigation_slides}
 
         # Keep the displayed radio value and the internal slide id synchronized.
-        # The explicit key + callback prevents occasional "double-click" behavior
-        # when moving between slides after editing fields.
-        if "selected_slide_label" not in st.session_state:
-            st.session_state.selected_slide_label = id_to_label.get(
-                st.session_state.selected_slide_id,
-                id_to_label[SLIDES[0]["id"]],
-            )
-        elif st.session_state.selected_slide_label not in label_to_id:
-            st.session_state.selected_slide_label = id_to_label[SLIDES[0]["id"]]
+        # Do not assign to the radio widget's session_state key directly.
+        # Instead, choose the default index from selected_slide_id.
+        option_labels = list(label_to_id.keys())
+        current_label = id_to_label.get(st.session_state.get("selected_slide_id"), option_labels[0])
+        if current_label not in label_to_id:
             st.session_state.selected_slide_id = SLIDES[0]["id"]
+            current_label = id_to_label[SLIDES[0]["id"]]
+
+        radio_version = int(st.session_state.get("_slide_radio_version", 0) or 0)
+        radio_key = f"selected_slide_radio_{radio_version}"
+        st.session_state._slide_radio_key = radio_key
 
         st.radio(
             "Choose slide",
-            list(label_to_id.keys()),
-            key="selected_slide_label",
+            option_labels,
+            index=option_labels.index(current_label),
+            key=radio_key,
             on_change=sync_selected_slide,
         )
 
@@ -1332,8 +1344,7 @@ def main() -> None:
         ):
             new_slide = make_new_custom_slide()
             custom_slides.append(new_slide)
-            st.session_state.selected_slide_id = new_slide["id"]
-            st.session_state.selected_slide_label = f"Optional Slide {len(custom_slides)}"
+            request_slide_selection(new_slide["id"], f"Optional Slide {len(custom_slides)}")
             clear_widget_state()
             st.rerun()
 
@@ -1430,8 +1441,7 @@ def main() -> None:
                     use_container_width=True,
                 ):
                     remove_custom_slide(st.session_state.deck, selected_slide["id"])
-                    st.session_state.selected_slide_id = SLIDES[0]["id"]
-                    st.session_state.selected_slide_label = nav_label(SLIDES[0])
+                    request_slide_selection(SLIDES[0]["id"], nav_label(SLIDES[0]))
                     clear_widget_state()
                     st.rerun()
 
