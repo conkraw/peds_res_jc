@@ -39,6 +39,11 @@ BORDER = "000000"
 TEXT_DARK = RGBColor(20, 20, 20)
 TEXT_MUTED = RGBColor(95, 95, 95)
 DOC_FONT = "Calibri"
+# Vertical space after a completed table/field block.
+# This creates breathing room BETWEEN sections while keeping blue headers
+# physically connected to the box/table directly under them.
+SECTION_GAP_PT = 8
+CUSTOM_SLIDES_KEY = "_custom_slides"
 
 EMU_PER_INCH = 914400
 TWIPS_PER_INCH = 1440
@@ -263,8 +268,14 @@ def _set_table_widths(table, widths: List[float]) -> None:
     _lock_table_widths(table, widths)
 
 
-def _add_spacer(doc: Document, pts: float = 4) -> None:
+def _add_spacer(doc: Document, pts: float = SECTION_GAP_PT) -> None:
+    """Add controlled whitespace after a completed table section.
+
+    Use this only between finished sections. Do not call it immediately after
+    a blue banner when the banner should touch the content table below.
+    """
     p = doc.add_paragraph()
+    p.paragraph_format.space_before = Pt(0)
     p.paragraph_format.space_after = Pt(pts)
     p.paragraph_format.line_spacing = 1.0
 
@@ -355,7 +366,7 @@ def _add_field_box(
         _write_cell_text(footer_cell, _safe_text(footer).upper(), font_size=8.2, bold=True)
 
     _set_table_widths(table, [_body_width_inches(doc)])
-    _add_spacer(doc, 5)
+    _add_spacer(doc, SECTION_GAP_PT)
 
 
 def _add_two_column_value_table(doc: Document, rows: List[tuple[str, str]], *, label_width: float = 1.65, value_width: float | None = None) -> None:
@@ -371,7 +382,7 @@ def _add_two_column_value_table(doc: Document, rows: List[tuple[str, str]], *, l
         _write_cell_text(cells[0], _safe_text(label).upper(), font_size=8.5, bold=True)
         _write_cell_text(cells[1], _safe_text(value), font_size=8.6)
     _set_table_widths(table, [label_width, value_width])
-    _add_spacer(doc, 5)
+    _add_spacer(doc, SECTION_GAP_PT)
 
 
 def _add_banner_two_column_value_table(
@@ -435,7 +446,7 @@ def _add_banner_two_column_value_table(
         _set_cell_width(row.cells[0], label_width)
         _set_cell_width(row.cells[1], value_width)
 
-    _add_spacer(doc, 5)
+    _add_spacer(doc, SECTION_GAP_PT)
 
 
 def _add_two_column_text_boxes(doc: Document, left_label: str, left_text: str, right_label: str, right_text: str) -> None:
@@ -454,7 +465,7 @@ def _add_two_column_text_boxes(doc: Document, left_label: str, left_text: str, r
 
     total_width = _body_width_inches(doc)
     _set_table_widths(table, [total_width / 2, total_width / 2])
-    _add_spacer(doc, 5)
+    _add_spacer(doc, SECTION_GAP_PT)
 
 
 def _add_editable_table(doc: Document, label: str, rows: Any) -> None:
@@ -490,7 +501,7 @@ def _add_editable_table(doc: Document, label: str, rows: Any) -> None:
             _write_cell_text(cells[idx], _safe_text(row.get(column, "")), font_size=8.2)
     col_width = _body_width_inches(doc) / max(1, len(columns))
     _set_table_widths(table, [col_width] * len(columns))
-    _add_spacer(doc, 5)
+    _add_spacer(doc, SECTION_GAP_PT)
 
 
 # -----------------------------
@@ -689,7 +700,7 @@ def _add_review_table_block(doc: Document, label: str, rows: Any) -> None:
     _write_cell_text(footer_row[0], "Editable table text for mentor review", font_size=8.0, bold=True)
     col_width = _body_width_inches(doc) / max(1, len(columns))
     _set_table_widths(table, [col_width] * len(columns))
-    _add_spacer(doc, 5)
+    _add_spacer(doc, SECTION_GAP_PT)
 
 
 def _enable_track_changes(docx_stream: BytesIO) -> BytesIO:
@@ -783,6 +794,30 @@ def build_review_text_docx(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
             content_font_size=9.0,
             content_italic=True,
         )
+
+    custom_slides = deck.get(CUSTOM_SLIDES_KEY, [])
+    if isinstance(custom_slides, list):
+        for idx, custom_slide in enumerate(custom_slides, start=1):
+            if not isinstance(custom_slide, dict):
+                continue
+            title = _safe_text(custom_slide.get("title")) or f"Optional Slide {idx}"
+            _add_banner(doc, f"Optional Slide {idx}: {title}")
+            _add_field_box(doc, "Optional slide title", title, content_font_size=9.3)
+            _add_field_box(doc, "Main slide text", custom_slide.get("body", ""), content_font_size=9.3)
+            _add_field_box(
+                doc,
+                "Why this extra slide is needed",
+                custom_slide.get("reason", ""),
+                content_font_size=9.0,
+                content_italic=True,
+            )
+            _add_field_box(
+                doc,
+                "Mentor notes / comments",
+                "[Add comments here or use Word comments in the margin.]",
+                content_font_size=9.0,
+                content_italic=True,
+            )
 
     output = BytesIO()
     doc.save(output)

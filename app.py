@@ -2,8 +2,10 @@ from __future__ import annotations
 
 import json
 import re
+import uuid
 from copy import deepcopy
 from datetime import datetime
+from pathlib import Path
 from typing import Any, Dict, List
 
 import pandas as pd
@@ -11,7 +13,6 @@ import streamlit as st
 
 from pptx_builder import build_powerpoint
 from docx_builder import build_word_summary, build_review_text_docx
-from printable_form_builder import build_printable_planning_form
 from github_storage import (
     GitHubDraftLoadError,
     GitHubDraftSaveError,
@@ -28,9 +29,46 @@ from github_storage import (
 )
 from slide_schema import SLIDES, make_default_deck
 
+try:
+    from printable_form_builder import build_printable_planning_form
+except Exception:
+    build_printable_planning_form = None
+
 
 APP_TITLE = "Journal Club PowerPoint Builder"
 PROJECT_VERSION = "0.2.6"
+
+
+CUSTOM_SLIDES_KEY = "_custom_slides"
+MAX_CUSTOM_SLIDES = 2
+
+CUSTOM_SLIDE_FIELDS: List[Dict[str, Any]] = [
+    {
+        "key": "title",
+        "label": "Optional slide title",
+        "type": "text",
+        "required": True,
+        "max_words": 12,
+        "guide": "Short title for the extra slide. Keep this focused.",
+    },
+    {
+        "key": "body",
+        "label": "Optional slide main text",
+        "type": "textarea",
+        "required": True,
+        "max_words": 90,
+        "height": 190,
+        "guide": "Use only when the core slide set is not enough. Write concise teaching text or one short bullet per line.",
+    },
+    {
+        "key": "reason",
+        "label": "Why is this extra slide needed?",
+        "type": "textarea",
+        "max_words": 35,
+        "height": 90,
+        "guide": "Mentor-facing note. This is included in the review DOCX but not displayed on the PowerPoint slide.",
+    },
+]
 
 
 # -----------------------------
@@ -60,6 +98,8 @@ def normalize_deck(deck_or_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]
     """
     deck = deck_or_payload.get("deck", deck_or_payload) if isinstance(deck_or_payload, dict) else {}
     default = make_default_deck()
+    default[CUSTOM_SLIDES_KEY] = []
+
     for slide in SLIDES:
         sid = slide["id"]
         if isinstance(deck, dict) and sid in deck and isinstance(deck[sid], dict):
@@ -67,6 +107,16 @@ def normalize_deck(deck_or_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]
                 fkey = field["key"]
                 if fkey in deck[sid]:
                     default[sid][fkey] = deck[sid][fkey]
+
+    if isinstance(deck, dict):
+        raw_custom_slides = deck.get(CUSTOM_SLIDES_KEY, [])
+        if isinstance(raw_custom_slides, list):
+            default[CUSTOM_SLIDES_KEY] = [
+                normalize_custom_slide(item)
+                for item in raw_custom_slides
+                if isinstance(item, dict)
+            ][:MAX_CUSTOM_SLIDES]
+
     return default
 
 def delete_passcode_is_valid(passcode: str) -> bool:
@@ -120,6 +170,81 @@ def initialize_state() -> None:
     if "archive_index_loaded" not in st.session_state:
         st.session_state.archive_index_loaded = False
 
+
+
+def get_custom_slides(deck: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return the optional slide list, creating a safe empty list if needed."""
+    custom_slides = deck.get(CUSTOM_SLIDES_KEY)
+    if not isinstance(custom_slides, list):
+        deck[CUSTOM_SLIDES_KEY] = []
+        custom_slides = deck[CUSTOM_SLIDES_KEY]
+    return custom_slides
+
+
+def make_new_custom_slide() -> Dict[str, Any]:
+    """Create one blank optional slide record."""
+    return {
+        "id": f"custom_{uuid.uuid4().hex[:8]}",
+        "title": "",
+        "body": "",
+        "reason": "",
+    }
+
+
+def normalize_custom_slide(raw: Dict[str, Any]) -> Dict[str, Any]:
+    """Normalize older or partial optional slide records."""
+    return {
+        "id": str(raw.get("id") or f"custom_{uuid.uuid4().hex[:8]}").strip(),
+        "title": str(raw.get("title") or "").strip(),
+        "body": str(raw.get("body") or "").strip(),
+        "reason": str(raw.get("reason") or "").strip(),
+    }
+
+
+def make_custom_slide_schema(custom_slide: Dict[str, Any], index: int) -> Dict[str, Any]:
+    """Create a schema-like object so optional slides use the same field renderer."""
+    title = str(custom_slide.get("title") or "").strip()
+    return {
+        "id": custom_slide.get("id", f"custom_{index}"),
+        "label": f"Optional Slide {index}",
+        "export_title": title or f"Optional Slide {index}",
+        "fields": CUSTOM_SLIDE_FIELDS,
+        "is_custom": True,
+        "custom_index": index,
+    }
+
+
+def get_navigation_slides(deck: Dict[str, Any]) -> List[Dict[str, Any]]:
+    """Return core slides plus optional slides for sidebar navigation."""
+    navigation_slides = list(SLIDES)
+    for idx, custom_slide in enumerate(get_custom_slides(deck), start=1):
+        navigation_slides.append(make_custom_slide_schema(custom_slide, idx))
+    return navigation_slides
+
+
+def get_selected_slide_and_data(deck: Dict[str, Any]) -> tuple[Dict[str, Any], Dict[str, Any]]:
+    """Return the selected schema and data dict for either a core or optional slide."""
+    selected_id = st.session_state.get("selected_slide_id", SLIDES[0]["id"])
+
+    for slide in SLIDES:
+        if slide["id"] == selected_id:
+            return slide, deck[slide["id"]]
+
+    for idx, custom_slide in enumerate(get_custom_slides(deck), start=1):
+        if custom_slide.get("id") == selected_id:
+            return make_custom_slide_schema(custom_slide, idx), custom_slide
+
+    st.session_state.selected_slide_id = SLIDES[0]["id"]
+    st.session_state.selected_slide_label = nav_label(SLIDES[0])
+    return SLIDES[0], deck[SLIDES[0]["id"]]
+
+
+def remove_custom_slide(deck: Dict[str, Any], slide_id: str) -> None:
+    """Remove one optional slide from the active deck."""
+    deck[CUSTOM_SLIDES_KEY] = [
+        slide for slide in get_custom_slides(deck)
+        if slide.get("id") != slide_id
+    ]
 
 def nav_label(slide: Dict[str, Any]) -> str:
     """Short, user-friendly labels for the sidebar only."""
@@ -181,7 +306,10 @@ def sync_selected_slide() -> None:
     on_change callback prevents the sidebar radio button from feeling like it
     needs a second click, especially after editing text/table widgets.
     """
-    label_to_id = {nav_label(slide): slide["id"] for slide in SLIDES}
+    label_to_id = {
+        nav_label(slide): slide["id"]
+        for slide in get_navigation_slides(st.session_state.deck)
+    }
     selected_label = st.session_state.get("selected_slide_label")
     if selected_label in label_to_id:
         st.session_state.selected_slide_id = label_to_id[selected_label]
@@ -261,6 +389,14 @@ def validate_deck(deck: Dict[str, Dict[str, Any]]) -> List[str]:
             value = slide_data.get(field["key"], "")
             for problem in validate_field(value, field):
                 problems.append(f"{slide['label']} — {problem}")
+
+    for idx, custom_slide in enumerate(get_custom_slides(deck), start=1):
+        slide = make_custom_slide_schema(custom_slide, idx)
+        for field in slide["fields"]:
+            value = custom_slide.get(field["key"], "")
+            for problem in validate_field(value, field):
+                problems.append(f"{slide['label']} — {problem}")
+
     return problems
 
 
@@ -279,6 +415,15 @@ def progress_summary(deck: Dict[str, Dict[str, Any]]) -> tuple[int, int]:
                     filled_fields += 1
             elif str(value or "").strip():
                 filled_fields += 1
+
+    for idx, custom_slide in enumerate(get_custom_slides(deck), start=1):
+        slide = make_custom_slide_schema(custom_slide, idx)
+        for field in slide["fields"]:
+            visible_fields += 1
+            value = custom_slide.get(field["key"], "")
+            if str(value or "").strip():
+                filled_fields += 1
+
     return filled_fields, visible_fields
 
 
@@ -1073,6 +1218,7 @@ def make_blank_deck() -> Dict[str, Dict[str, Any]]:
                 deck[slide["id"]][field_key] = field.get("default", field.get("options", [""])[0])
             else:
                 deck[slide["id"]][field_key] = ""
+    deck[CUSTOM_SLIDES_KEY] = []
     return deck
     
 def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
@@ -1106,19 +1252,23 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
         use_container_width=True,
     )
 
-    #printable_form = build_printable_planning_form(deck)
-    with open(
-    "journal_club_printable_planning_form.docx",
-    "rb",
-    ) as f:
-        printable_form = f.read()
-    st.download_button(
-        "Download Printable Planning Form",
-        data=printable_form,
-        file_name="journal_club_printable_planning_form.docx",
-        mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        use_container_width=True,
-    )
+    form_path = Path("journal_club_printable_planning_form.docx")
+    if form_path.exists():
+        printable_form = form_path.read_bytes()
+    elif build_printable_planning_form is not None:
+        printable_form = build_printable_planning_form(deck)
+    else:
+        printable_form = None
+        st.warning("Printable planning form file is missing from the app folder.")
+
+    if printable_form is not None:
+        st.download_button(
+            "Download Printable Planning Form",
+            data=printable_form,
+            file_name="journal_club_printable_planning_form.docx",
+            mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+            use_container_width=True,
+        )
 
     draft_json = json.dumps(deck, indent=2, ensure_ascii=False).encode("utf-8")
     #st.download_button("Download editable draft JSON",data=draft_json,file_name=f"journal_club_draft_{timestamp}.json",mime="application/json",use_container_width=True)
@@ -1147,14 +1297,18 @@ def main() -> None:
         st.header("Slides")
         st.caption("Pick a slide here. Edit the fields on the main page.")
 
-        label_to_id = {nav_label(slide): slide["id"] for slide in SLIDES}
-        id_to_label = {slide["id"]: nav_label(slide) for slide in SLIDES}
+        navigation_slides = get_navigation_slides(st.session_state.deck)
+        label_to_id = {nav_label(slide): slide["id"] for slide in navigation_slides}
+        id_to_label = {slide["id"]: nav_label(slide) for slide in navigation_slides}
 
         # Keep the displayed radio value and the internal slide id synchronized.
         # The explicit key + callback prevents occasional "double-click" behavior
         # when moving between slides after editing fields.
         if "selected_slide_label" not in st.session_state:
-            st.session_state.selected_slide_label = id_to_label[st.session_state.selected_slide_id]
+            st.session_state.selected_slide_label = id_to_label.get(
+                st.session_state.selected_slide_id,
+                id_to_label[SLIDES[0]["id"]],
+            )
         elif st.session_state.selected_slide_label not in label_to_id:
             st.session_state.selected_slide_label = id_to_label[SLIDES[0]["id"]]
             st.session_state.selected_slide_id = SLIDES[0]["id"]
@@ -1165,6 +1319,23 @@ def main() -> None:
             key="selected_slide_label",
             on_change=sync_selected_slide,
         )
+
+        st.divider()
+        st.markdown("**Optional slides**")
+        custom_slides = get_custom_slides(st.session_state.deck)
+        st.caption(f"{len(custom_slides)} / {MAX_CUSTOM_SLIDES} optional slides added")
+        if st.button(
+            "Add Optional Slide",
+            key="add_optional_slide_button",
+            disabled=len(custom_slides) >= MAX_CUSTOM_SLIDES,
+            use_container_width=True,
+        ):
+            new_slide = make_new_custom_slide()
+            custom_slides.append(new_slide)
+            st.session_state.selected_slide_id = new_slide["id"]
+            st.session_state.selected_slide_label = f"Optional Slide {len(custom_slides)}"
+            clear_widget_state()
+            st.rerun()
 
         st.divider()
 
@@ -1207,6 +1378,7 @@ def main() -> None:
 
                 if st.button("Reset to OxyKids Example", key="reset_oxykids_button", use_container_width=True):
                     st.session_state.deck = make_default_deck()
+                    st.session_state.deck[CUSTOM_SLIDES_KEY] = []
                     st.session_state.saved_article = {}
                     st.session_state.archive_id = ""
                     st.session_state.archive_path = ""
@@ -1236,8 +1408,7 @@ def main() -> None:
                     st.session_state.advanced_panel = ""
                     st.rerun()
 
-    selected_slide = next(slide for slide in SLIDES if slide["id"] == st.session_state.selected_slide_id)
-    selected_slide_data = st.session_state.deck[selected_slide["id"]]
+    selected_slide, selected_slide_data = get_selected_slide_and_data(st.session_state.deck)
 
     editor_col, export_col = st.columns([2.2, 0.9])
 
@@ -1247,6 +1418,23 @@ def main() -> None:
 
         with st.container(border=True):
             st.markdown("### Edit this slide")
+
+            if selected_slide.get("is_custom"):
+                st.info(
+                    "This optional slide will export after the core journal club slides and before the appendix/feedback slides. "
+                    "Use it only when the standard slide set does not cover an important teaching point."
+                )
+                if st.button(
+                    "Remove this optional slide",
+                    key=f"remove_optional_slide_{selected_slide['id']}",
+                    use_container_width=True,
+                ):
+                    remove_custom_slide(st.session_state.deck, selected_slide["id"])
+                    st.session_state.selected_slide_id = SLIDES[0]["id"]
+                    st.session_state.selected_slide_label = nav_label(SLIDES[0])
+                    clear_widget_state()
+                    st.rerun()
+
             for field in selected_slide["fields"]:
                 render_field(selected_slide["id"], selected_slide_data, field)
             if selected_slide["id"] == "title_goal":
