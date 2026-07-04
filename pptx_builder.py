@@ -269,11 +269,46 @@ def add_small_label(slide, x: float, y: float, w: float, label: str, color: RGBC
     r.font.bold = True
     r.font.size = Pt(10.5)
     r.font.color.rgb = color
+
+    # Mark these shapes so they can be moved to the top of the z-order after
+    # all adjoining content boxes have been added to the slide.
+    shape.name = f"JC_LABEL__{label_text}"
     return shape
+
+
+def bring_small_labels_to_front(slide) -> None:
+    """Move all small callout labels above overlapping content boxes.
+
+    Several layouts intentionally place a label like a tab along the top edge
+    of the content box beneath it. PowerPoint uses creation order as z-order,
+    so a later content box can otherwise cover part of the label. Re-appending
+    only the marked label elements makes those labels the topmost editable
+    shapes without changing any coordinates.
+    """
+    labels = [
+        shape
+        for shape in slide.shapes
+        if str(getattr(shape, "name", "")).startswith("JC_LABEL__")
+    ]
+
+    sp_tree = slide.shapes._spTree
+    for shape in labels:
+        element = shape._element
+        parent = element.getparent()
+        if parent is None:
+            continue
+        parent.remove(element)
+
+        # Keep an optional p:extLst element last, as required by the schema.
+        insert_at = len(sp_tree)
+        if len(sp_tree) and sp_tree[-1].tag.endswith("}extLst"):
+            insert_at -= 1
+        sp_tree.insert(insert_at, element)
 
 
 def add_footer(slide, text: str = "Journal Club Builder"):
     add_textbox(slide, 0.6, 7.08, 12.0, 0.24, text, font_size=8, color=COLOR_MID, align=PP_ALIGN.RIGHT)
+    bring_small_labels_to_front(slide)
 
 
 def add_results_table(slide, rows_data: List[Dict[str, Any]], x=0.55, y=1.35, w=12.25, h=3.55):
