@@ -11,7 +11,7 @@ import qrcode
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR, MSO_AUTO_SIZE
 from pptx.util import Inches, Pt
 
 from slide_schema import SLIDES
@@ -40,6 +40,13 @@ SLIDE_W = 13.333
 SLIDE_H = 7.5
 CUSTOM_SLIDES_KEY = "_custom_slides"
 DEFAULT_CUSTOM_SLIDE_INSERT_AFTER = "final_bottom_line"
+
+# Small callout labels should feel visually connected to their content without
+# sitting on top of it. Content boxes keep their fixed coordinates, while the
+# label is lifted slightly and filled boxes get consistent inner padding.
+SMALL_LABEL_HEIGHT = 0.22
+SMALL_LABEL_LIFT = 0.07
+CALLOUT_MARGIN = 0.11
 
 
 def _safe_text(value: Any) -> str:
@@ -131,16 +138,26 @@ def add_textbox(
     align=PP_ALIGN.LEFT,
     fill: RGBColor | None = None,
     margin: float = 0.08,
+    breathing_room: bool | None = None,
 ):
     shape = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
     tf = shape.text_frame
     tf.clear()
     tf.word_wrap = True
-    tf.margin_left = Inches(margin)
-    tf.margin_right = Inches(margin)
-    tf.margin_top = Inches(margin)
-    tf.margin_bottom = Inches(margin)
-    tf.vertical_anchor = MSO_ANCHOR.TOP
+
+    # Filled callout boxes receive a little extra internal padding and shrink
+    # text only when needed. This keeps the boxes fixed in place while giving
+    # the text breathing room, so manual edits usually involve text—not moving
+    # shapes around the slide.
+    use_breathing_room = (fill is not None) if breathing_room is None else breathing_room
+    effective_margin = max(float(margin), CALLOUT_MARGIN) if use_breathing_room else float(margin)
+    tf.margin_left = Inches(effective_margin)
+    tf.margin_right = Inches(effective_margin)
+    tf.margin_top = Inches(effective_margin)
+    tf.margin_bottom = Inches(effective_margin)
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE if use_breathing_room else MSO_ANCHOR.TOP
+    if use_breathing_room:
+        tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
     p = tf.paragraphs[0]
     p.alignment = align
@@ -230,8 +247,9 @@ def add_small_label(slide, x: float, y: float, w: float, label: str, color: RGBC
 
     The earlier label was just tiny text on a white background, so it could look
     like it was missing after export. This version draws a small editable
-    rounded-rectangle "pill" label. The label width is based on the label text,
-    not the full callout width, so it stays readable without cluttering slides.
+    rounded-rectangle "pill" label. It is lifted slightly above the supplied
+    position, leaving a narrow visual gap before the content box. The label
+    width is based on the text, not the full callout width.
     """
     label_text = _safe_text(label).strip()
     if not label_text:
@@ -240,12 +258,12 @@ def add_small_label(slide, x: float, y: float, w: float, label: str, color: RGBC
     # Approximate width in inches: enough for the label, but never wider than
     # the space the caller gave us. This keeps labels compact and consistent.
     label_w = min(float(w), max(1.35, min(4.8, 0.12 * len(label_text) + 0.35)))
-    label_h = 0.30
+    label_h = SMALL_LABEL_HEIGHT
 
     shape = slide.shapes.add_shape(
         MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE,
         Inches(x),
-        Inches(y),
+        Inches(max(0.0, y - SMALL_LABEL_LIFT)),
         Inches(label_w),
         Inches(label_h),
     )
