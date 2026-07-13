@@ -11,8 +11,6 @@ from typing import Any, Dict, List
 import pandas as pd
 import streamlit as st
 
-from pptx_builder import build_powerpoint
-from docx_builder import build_word_summary, build_review_text_docx
 from github_storage import (
     GitHubDraftLoadError,
     GitHubDraftSaveError,
@@ -29,14 +27,8 @@ from github_storage import (
 )
 from slide_schema import SLIDES, make_default_deck
 
-try:
-    from printable_form_builder import build_printable_planning_form
-except Exception:
-    build_printable_planning_form = None
-
-
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.6"
+PROJECT_VERSION = "0.2.7"
 
 
 CUSTOM_SLIDES_KEY = "_custom_slides"
@@ -78,6 +70,107 @@ CUSTOM_SLIDE_FIELDS: List[Dict[str, Any]] = [
     },
 ]
 
+
+
+# -----------------------------
+# Performance / export helpers
+# -----------------------------
+
+EXPORT_CACHE_KEYS = [
+    "prepared_pptx_bytes",
+    "prepared_pptx_signature",
+    "prepared_pptx_timestamp",
+    "prepared_summary_docx_bytes",
+    "prepared_summary_docx_signature",
+    "prepared_summary_docx_timestamp",
+    "prepared_review_docx_bytes",
+    "prepared_review_docx_signature",
+    "prepared_review_docx_timestamp",
+]
+
+ARTICLE_DOWNLOAD_CACHE_PREFIX = "prepared_article_pdf__"
+
+
+def deck_export_signature(deck: Dict[str, Any]) -> str:
+    """Return a stable signature for the current editable deck.
+
+    Export files are expensive to build. This signature lets the app reuse a
+    previously prepared PowerPoint/DOCX until the deck changes.
+    """
+    return json.dumps(deck, sort_keys=True, ensure_ascii=False, default=str)
+
+
+def clear_export_cache() -> None:
+    """Remove prepared export bytes when loading/resetting drafts."""
+    for key in EXPORT_CACHE_KEYS:
+        st.session_state.pop(key, None)
+    for key in list(st.session_state.keys()):
+        if str(key).startswith(ARTICLE_DOWNLOAD_CACHE_PREFIX):
+            st.session_state.pop(key, None)
+
+
+@st.cache_data(show_spinner=False)
+def load_static_printable_form_bytes(path: str = "journal_club_printable_planning_form.docx") -> bytes | None:
+    """Load the static planning form once instead of reading it on every rerun."""
+    form_path = Path(path)
+    if form_path.exists():
+        return form_path.read_bytes()
+    return None
+
+
+def get_prepared_export_bytes(kind: str, signature: str) -> bytes | None:
+    """Return cached export bytes only if they match the current deck."""
+    data_key = f"prepared_{kind}_bytes"
+    sig_key = f"prepared_{kind}_signature"
+    if st.session_state.get(sig_key) == signature:
+        data = st.session_state.get(data_key)
+        if isinstance(data, bytes) and data:
+            return data
+    return None
+
+
+def mark_export_prepared(kind: str, signature: str, data: bytes) -> None:
+    """Store prepared export bytes in session state."""
+    st.session_state[f"prepared_{kind}_bytes"] = data
+    st.session_state[f"prepared_{kind}_signature"] = signature
+    st.session_state[f"prepared_{kind}_timestamp"] = datetime.now().strftime("%H:%M:%S")
+
+
+def export_needs_refresh(kind: str, signature: str) -> bool:
+    """Return True when an old prepared export exists but no longer matches."""
+    sig_key = f"prepared_{kind}_signature"
+    old_signature = st.session_state.get(sig_key)
+    return bool(old_signature and old_signature != signature)
+
+
+def build_powerpoint_export(deck: Dict[str, Any]) -> bytes:
+    """Lazy import PowerPoint builder only when the user prepares an export."""
+    from pptx_builder import build_powerpoint
+
+    return build_powerpoint(deck, include_facilitator_notes=True)
+
+
+def build_summary_export(deck: Dict[str, Any]) -> bytes:
+    """Lazy import Word summary builder only when the user prepares an export."""
+    from docx_builder import build_word_summary
+
+    return build_word_summary(deck)
+
+
+def build_review_export(deck: Dict[str, Any]) -> bytes:
+    """Lazy import mentor review builder only when the user prepares it."""
+    from docx_builder import build_review_text_docx
+
+    return build_review_text_docx(deck)
+
+
+def build_printable_form_fallback(deck: Dict[str, Any]) -> bytes | None:
+    """Fallback for older deployments that still use printable_form_builder.py."""
+    try:
+        from printable_form_builder import build_printable_planning_form
+    except Exception:
+        return None
+    return build_printable_planning_form(deck)
 
 # -----------------------------
 # Utility functions
@@ -177,6 +270,8 @@ def initialize_state() -> None:
         st.session_state.archive_index_warnings = []
     if "archive_index_loaded" not in st.session_state:
         st.session_state.archive_index_loaded = False
+    if "export_cache_initialized" not in st.session_state:
+        st.session_state.export_cache_initialized = True
     if "_slide_radio_version" not in st.session_state:
         st.session_state._slide_radio_version = 0
 
@@ -851,6 +946,7 @@ def apply_loaded_payload_to_session(loaded: Dict[str, Any], source_path: str = "
     st.session_state.archive_id = archive_id
     st.session_state.archive_path = archive_path
 
+    clear_export_cache()
     clear_widget_state()
 
 
@@ -1329,42 +1425,78 @@ def make_blank_deck() -> Dict[str, Dict[str, Any]]:
 def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     problems = validate_deck(deck)
     timestamp = datetime.now().strftime("%Y%m%d")
-
-    #include_notes = st.checkbox("Include facilitator notes appendix slide",value=st.session_state.include_facilitator_notes,key="include_facilitator_notes")
+    signature = deck_export_signature(deck)
 
     render_archive_controls(deck)
     st.divider()
-    
-    #pptx_bytes = build_powerpoint(deck, include_facilitator_notes=include_notes)
-    pptx_bytes = build_powerpoint(deck, include_facilitator_notes=True)
-    
+
+    st.caption(
+        "Exports are prepared only when you click a Prepare button. "
+        "This keeps the app fast while you edit."
+    )
+
+    export_cols = st.columns(2)
+    with export_cols[0]:
+        prepare_pptx = st.button(
+            "Prepare PowerPoint",
+            key="prepare_powerpoint_button",
+            disabled=bool(problems),
+            use_container_width=True,
+        )
+    with export_cols[1]:
+        prepare_summary = st.button(
+            "Prepare 1-Page Summary",
+            key="prepare_summary_docx_button",
+            disabled=bool(problems),
+            use_container_width=True,
+        )
+
+    if prepare_pptx:
+        try:
+            with st.spinner("Preparing PowerPoint..."):
+                mark_export_prepared("pptx", signature, build_powerpoint_export(deck))
+            st.success("PowerPoint prepared.")
+        except Exception as exc:
+            st.error(f"Could not prepare PowerPoint: {exc}")
+
+    if prepare_summary:
+        try:
+            with st.spinner("Preparing 1-page summary..."):
+                mark_export_prepared("summary_docx", signature, build_summary_export(deck))
+            st.success("1-page summary prepared.")
+        except Exception as exc:
+            st.error(f"Could not prepare 1-page summary: {exc}")
+
+    pptx_bytes = get_prepared_export_bytes("pptx", signature)
+    if export_needs_refresh("pptx", signature):
+        st.warning("PowerPoint needs to be prepared again because the deck changed.")
+
     st.download_button(
         "Download PowerPoint",
-        data=pptx_bytes,
+        data=pptx_bytes or b"",
         file_name=f"journal_club_deck_{timestamp}.pptx",
         mime="application/vnd.openxmlformats-officedocument.presentationml.presentation",
-        disabled=bool(problems),
+        disabled=bool(problems) or pptx_bytes is None,
         use_container_width=True,
     )
 
-    docx_bytes = build_word_summary(deck)
+    summary_docx_bytes = get_prepared_export_bytes("summary_docx", signature)
+    if export_needs_refresh("summary_docx", signature):
+        st.warning("1-page summary needs to be prepared again because the deck changed.")
+
     st.download_button(
         "Download 1-Page Summary",
-        data=docx_bytes,
+        data=summary_docx_bytes or b"",
         file_name=f"journal_club_summary_{timestamp}.docx",
         mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
-        disabled=bool(problems),
+        disabled=bool(problems) or summary_docx_bytes is None,
         use_container_width=True,
     )
 
-    form_path = Path("journal_club_printable_planning_form.docx")
-    if form_path.exists():
-        printable_form = form_path.read_bytes()
-    elif build_printable_planning_form is not None:
-        printable_form = build_printable_planning_form(deck)
-    else:
-        printable_form = None
-        st.warning("Printable planning form file is missing from the app folder.")
+    printable_form = load_static_printable_form_bytes()
+    if printable_form is None:
+        # Slow fallback only used when the static form file is missing.
+        printable_form = build_printable_form_fallback(deck)
 
     if printable_form is not None:
         st.download_button(
@@ -1374,12 +1506,11 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
             mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
             use_container_width=True,
         )
+    else:
+        st.warning("Printable planning form file is missing from the app folder.")
 
     draft_json = json.dumps(deck, indent=2, ensure_ascii=False).encode("utf-8")
-    #st.download_button("Download editable draft JSON",data=draft_json,file_name=f"journal_club_draft_{timestamp}.json",mime="application/json",use_container_width=True)
-
-    #st.divider()
-    #render_archive_controls(deck)
+    # st.download_button("Download editable draft JSON", data=draft_json, file_name=f"journal_club_draft_{timestamp}.json", mime="application/json", use_container_width=True)
 
 
 
@@ -1440,6 +1571,7 @@ def main() -> None:
             new_slide = make_new_custom_slide(default_insert_after_for_new_custom_slide(st.session_state.deck))
             custom_slides.append(new_slide)
             request_slide_selection(new_slide["id"], f"Optional Slide {len(custom_slides)}")
+            clear_export_cache()
             clear_widget_state()
             st.rerun()
 
@@ -1471,12 +1603,33 @@ def main() -> None:
                 st.caption(
                     "Mentor review export creates an editable DOCX with the slide text, reviewer guidelines, and Track Changes enabled."
                 )
-                review_docx_bytes = build_review_text_docx(st.session_state.deck)
+                review_signature = deck_export_signature(st.session_state.deck)
+                if st.button(
+                    "Prepare PowerPoint Text Review DOCX",
+                    key="prepare_review_docx_button",
+                    use_container_width=True,
+                ):
+                    try:
+                        with st.spinner("Preparing mentor review DOCX..."):
+                            mark_export_prepared(
+                                "review_docx",
+                                review_signature,
+                                build_review_export(st.session_state.deck),
+                            )
+                        st.success("Mentor review DOCX prepared.")
+                    except Exception as exc:
+                        st.error(f"Could not prepare mentor review DOCX: {exc}")
+
+                review_docx_bytes = get_prepared_export_bytes("review_docx", review_signature)
+                if export_needs_refresh("review_docx", review_signature):
+                    st.warning("Mentor review DOCX needs to be prepared again because the deck changed.")
+
                 st.download_button(
                     "Download PowerPoint Text Review DOCX",
-                    data=review_docx_bytes,
+                    data=review_docx_bytes or b"",
                     file_name=f"journal_club_text_review_{datetime.now().strftime('%Y%m%d')}.docx",
                     mime="application/vnd.openxmlformats-officedocument.wordprocessingml.document",
+                    disabled=review_docx_bytes is None,
                     use_container_width=True,
                 )
 
@@ -1488,6 +1641,7 @@ def main() -> None:
                     st.session_state.saved_article = {}
                     st.session_state.archive_id = ""
                     st.session_state.archive_path = ""
+                    clear_export_cache()
                     clear_widget_state()
                     st.success("Reset complete.")
                     st.rerun()
@@ -1497,6 +1651,7 @@ def main() -> None:
                     st.session_state.saved_article = {}
                     st.session_state.archive_id = ""
                     st.session_state.archive_path = ""
+                    clear_export_cache()
                 
                     for slide in SLIDES:
                         for field in slide["fields"]:
@@ -1537,6 +1692,7 @@ def main() -> None:
                 ):
                     remove_custom_slide(st.session_state.deck, selected_slide["id"])
                     request_slide_selection(SLIDES[0]["id"], nav_label(SLIDES[0]))
+                    clear_export_cache()
                     clear_widget_state()
                     st.rerun()
 
@@ -1556,9 +1712,22 @@ def main() -> None:
                     if saved_archive_id:
                         st.caption(f"Archive ID: {saved_archive_id}")
             
-                    try:
-                        article_bytes = load_file_bytes_from_github(saved_article["path"])
-            
+                    article_path = str(saved_article.get("path", "") or "")
+                    article_cache_key = ARTICLE_DOWNLOAD_CACHE_PREFIX + article_path
+                    if st.button(
+                        "Prepare saved article PDF download",
+                        key="prepare_saved_article_pdf_button",
+                        use_container_width=True,
+                    ):
+                        try:
+                            with st.spinner("Loading saved article PDF..."):
+                                st.session_state[article_cache_key] = load_file_bytes_from_github(article_path)
+                            st.success("Saved article PDF is ready to download.")
+                        except Exception as exc:
+                            st.warning(f"Article is listed, but could not be downloaded: {exc}")
+
+                    article_bytes = st.session_state.get(article_cache_key)
+                    if isinstance(article_bytes, bytes) and article_bytes:
                         st.download_button(
                             "Download saved article PDF",
                             data=article_bytes,
@@ -1566,8 +1735,6 @@ def main() -> None:
                             mime="application/pdf",
                             use_container_width=True,
                         )
-                    except Exception as exc:
-                        st.warning(f"Article is listed, but could not be downloaded: {exc}")
             
                 uploaded_article = st.file_uploader(
                     "Upload or replace journal article PDF",

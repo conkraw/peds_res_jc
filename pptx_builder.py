@@ -11,7 +11,7 @@ import qrcode
 from pptx import Presentation
 from pptx.dml.color import RGBColor
 from pptx.enum.shapes import MSO_AUTO_SHAPE_TYPE
-from pptx.enum.text import PP_ALIGN, MSO_ANCHOR
+from pptx.enum.text import PP_ALIGN, MSO_ANCHOR, MSO_AUTO_SIZE
 from pptx.util import Inches, Pt
 
 from slide_schema import SLIDES
@@ -40,6 +40,14 @@ SLIDE_W = 13.333
 SLIDE_H = 7.5
 CUSTOM_SLIDES_KEY = "_custom_slides"
 DEFAULT_CUSTOM_SLIDE_INSERT_AFTER = "final_bottom_line"
+
+# Small callout labels should feel visually connected to their content without
+# sitting on top of it. Content boxes keep their fixed coordinates, while the
+# label is lifted slightly and filled boxes get consistent inner padding.
+SMALL_LABEL_HEIGHT = 0.22
+SMALL_LABEL_LIFT = 0.07
+CALLOUT_MARGIN = 0.11
+INLINE_LABEL_HEIGHT = 0.22
 
 
 def _safe_text(value: Any) -> str:
@@ -131,16 +139,26 @@ def add_textbox(
     align=PP_ALIGN.LEFT,
     fill: RGBColor | None = None,
     margin: float = 0.08,
+    breathing_room: bool | None = None,
 ):
     shape = slide.shapes.add_textbox(Inches(x), Inches(y), Inches(w), Inches(h))
     tf = shape.text_frame
     tf.clear()
     tf.word_wrap = True
-    tf.margin_left = Inches(margin)
-    tf.margin_right = Inches(margin)
-    tf.margin_top = Inches(margin)
-    tf.margin_bottom = Inches(margin)
-    tf.vertical_anchor = MSO_ANCHOR.TOP
+
+    # Filled callout boxes receive a little extra internal padding and shrink
+    # text only when needed. This keeps the boxes fixed in place while giving
+    # the text breathing room, so manual edits usually involve text—not moving
+    # shapes around the slide.
+    use_breathing_room = (fill is not None) if breathing_room is None else breathing_room
+    effective_margin = max(float(margin), CALLOUT_MARGIN) if use_breathing_room else float(margin)
+    tf.margin_left = Inches(effective_margin)
+    tf.margin_right = Inches(effective_margin)
+    tf.margin_top = Inches(effective_margin)
+    tf.margin_bottom = Inches(effective_margin)
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE if use_breathing_room else MSO_ANCHOR.TOP
+    if use_breathing_room:
+        tf.auto_size = MSO_AUTO_SIZE.TEXT_TO_FIT_SHAPE
 
     p = tf.paragraphs[0]
     p.alignment = align
@@ -230,8 +248,9 @@ def add_small_label(slide, x: float, y: float, w: float, label: str, color: RGBC
 
     The earlier label was just tiny text on a white background, so it could look
     like it was missing after export. This version draws a small editable
-    rounded-rectangle "pill" label. The label width is based on the label text,
-    not the full callout width, so it stays readable without cluttering slides.
+    rounded-rectangle "pill" label. It is lifted slightly above the supplied
+    position, leaving a narrow visual gap before the content box. The label
+    width is based on the text, not the full callout width.
     """
     label_text = _safe_text(label).strip()
     if not label_text:
@@ -240,12 +259,12 @@ def add_small_label(slide, x: float, y: float, w: float, label: str, color: RGBC
     # Approximate width in inches: enough for the label, but never wider than
     # the space the caller gave us. This keeps labels compact and consistent.
     label_w = min(float(w), max(1.35, min(4.8, 0.12 * len(label_text) + 0.35)))
-    label_h = 0.30
+    label_h = SMALL_LABEL_HEIGHT
 
     shape = slide.shapes.add_shape(
         MSO_AUTO_SHAPE_TYPE.ROUNDED_RECTANGLE,
         Inches(x),
-        Inches(y),
+        Inches(max(0.0, y - SMALL_LABEL_LIFT)),
         Inches(label_w),
         Inches(label_h),
     )
@@ -273,6 +292,52 @@ def add_small_label(slide, x: float, y: float, w: float, label: str, color: RGBC
     # Mark these shapes so they can be moved to the top of the z-order after
     # all adjoining content boxes have been added to the slide.
     shape.name = f"JC_LABEL__{label_text}"
+    return shape
+
+
+def add_inline_label(
+    slide,
+    x: float,
+    y: float,
+    w: float,
+    label: str,
+    color: RGBColor = COLOR_ACCENT,
+):
+    """Add a clean text-only label above content that has no filled box.
+
+    Attached pill labels work well when they visually belong to a shaded
+    callout box. They look detached when the content below is plain text.
+    This text-only treatment keeps the hierarchy without creating a floating
+    rounded rectangle.
+    """
+    label_text = _safe_text(label).strip()
+    if not label_text:
+        return None
+
+    shape = slide.shapes.add_textbox(
+        Inches(x),
+        Inches(y),
+        Inches(w),
+        Inches(INLINE_LABEL_HEIGHT),
+    )
+    shape.name = f"JC_INLINE_LABEL__{label_text}"
+
+    tf = shape.text_frame
+    tf.clear()
+    tf.word_wrap = False
+    tf.margin_left = 0
+    tf.margin_right = 0
+    tf.margin_top = 0
+    tf.margin_bottom = 0
+    tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+
+    p = tf.paragraphs[0]
+    p.alignment = PP_ALIGN.LEFT
+    r = p.add_run()
+    r.text = label_text
+    r.font.bold = True
+    r.font.size = Pt(11)
+    r.font.color.rgb = color
     return shape
 
 
@@ -470,8 +535,8 @@ def build_opening_case_slide(prs, deck):
     add_title(slide, "Opening Patient Case")
     add_small_label(slide, 0.75, 0.98, 11.9, "Patient Case")
     add_textbox(slide, 0.75, 1.18, 11.9, 1.5, data.get("case_stem"), font_size=20, fill=COLOR_LIGHT_GRAY)
-    add_small_label(slide, 0.75, 2.75, 11.9, "Opening Question")
-    add_textbox(slide, 0.75, 2.95, 11.9, 0.45, data.get("question"), font_size=22, bold=True, color=COLOR_ACCENT)
+    add_inline_label(slide, 0.75, 2.72, 4.0, "Opening Question")
+    add_textbox(slide, 0.75, 2.98, 11.9, 0.45, data.get("question"), font_size=22, bold=True, color=COLOR_ACCENT)
     add_section_label(slide, 1.0, 3.45, 3.4, "Answer Choices")
     add_bullets(slide, 1.0, 3.92, 6.4, 1.3, _lines(data.get("answer_choices")), font_size=18, bullet=False)
     add_small_label(slide, 0.85, 5.42, 11.6, "Facilitator Prompt")
@@ -483,8 +548,8 @@ def build_patient_problem_slide(prs, deck):
     data = deck["patient_problem"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "The Patient Problem")
-    add_small_label(slide, 0.75, 0.98, 11.9, "Problem Framing")
-    add_textbox(slide, 0.75, 1.18, 11.9, 0.72, data.get("headline"), font_size=24, bold=True, color=COLOR_ACCENT)
+    add_inline_label(slide, 0.75, 0.98, 4.0, "Problem Framing")
+    add_textbox(slide, 0.75, 1.26, 11.9, 0.72, data.get("headline"), font_size=24, bold=True, color=COLOR_ACCENT)
     add_section_label(slide, 0.8, 2.18, 3.2, "Clinical Problem")
     add_bullets(slide, 0.95, 2.72, 11.5, 2.05, _lines(data.get("problem_bullets")), font_size=20)
     add_small_label(slide, 0.85, 5.20, 11.6, "Discussion Question")
@@ -504,7 +569,7 @@ def build_pico_slide(prs, deck):
         y += 0.85
     add_small_label(slide, 0.85, 4.72, 11.6, "Plain-Language Study Question")
     add_textbox(slide, 0.85, 4.95, 11.6, 0.75, data.get("plain_question"), font_size=20, bold=True, fill=COLOR_LIGHT_GRAY, align=PP_ALIGN.CENTER)
-    add_small_label(slide, 0.85, 5.86, 11.6, "Discussion Question")
+    add_inline_label(slide, 0.85, 5.86, 4.0, "Discussion Question")
     add_textbox(slide, 0.85, 6.10, 11.6, 0.45, data.get("discussion_question"), font_size=18, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     add_footer(slide)
     return slide
@@ -513,8 +578,8 @@ def build_study_design_slide(prs, deck):
     data = deck["study_design"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "What They Did")
-    add_small_label(slide, 0.75, 0.96, 11.9, "Study Design")
-    add_textbox(slide, 0.75, 1.16, 11.9, 0.50, data.get("design"), font_size=23, bold=True, color=COLOR_ACCENT)
+    add_inline_label(slide, 0.75, 0.96, 4.0, "Study Design")
+    add_textbox(slide, 0.75, 1.24, 11.9, 0.50, data.get("design"), font_size=23, bold=True, color=COLOR_ACCENT)
     add_section_label(slide, 0.75, 1.95, 3.0, "What That Means")
     add_bullets(slide, 0.9, 2.42, 5.7, 2.2, _lines(data.get("design_bullets")), font_size=14)
     add_section_label(slide, 6.95, 1.95, 2.7, "Who Was Included")
@@ -530,8 +595,8 @@ def build_main_result_slide(prs, deck):
     data = deck["main_result"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "What They Found")
-    add_small_label(slide, 0.75, 0.92, 11.9, "Main Result")
-    add_textbox(slide, 0.75, 1.10, 11.9, 0.40, data.get("main_result"), font_size=23, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
+    add_inline_label(slide, 0.75, 0.92, 4.0, "Main Result")
+    add_textbox(slide, 0.75, 1.20, 11.9, 0.36, data.get("main_result"), font_size=23, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     visual_type = data.get("visual_type", "Results table")
 
     if visual_type == "Results table":
@@ -555,7 +620,7 @@ def build_main_result_slide(prs, deck):
 
     add_small_label(slide, 0.85, 5.30, 11.6, "Plain-Language Result")
     add_textbox(slide, 0.85, 5.55, 11.6, 0.55, data.get("plain_result"), font_size=17, bold=True, fill=COLOR_LIGHT_GRAY, align=PP_ALIGN.CENTER)
-    add_small_label(slide, 0.85, 6.15, 11.6, "Discussion Question")
+    add_inline_label(slide, 0.85, 6.15, 4.0, "Discussion Question")
     add_textbox(slide, 0.85, 6.35, 11.6, 0.42, data.get("discussion_question"), font_size=15, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     add_footer(slide)
     return slide
@@ -686,7 +751,7 @@ def build_apply_back_slide(prs, deck):
     data = deck["apply_back"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "Apply Back To The Patient")
-    add_small_label(slide, 0.85, 1.12, 11.6, "Return-To-Case Question")
+    add_inline_label(slide, 0.85, 1.12, 4.5, "Return-To-Case Question")
     add_textbox(slide, 0.85, 1.35, 11.6, 0.8, data.get("return_question"), font_size=24, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
     add_section_label(slide, 3.0, 2.7, 7.3, "Closing Vote")
     add_bullets(slide, 3.15, 3.22, 7.3, 1.4, _lines(data.get("vote_options")), font_size=20, bullet=False)
