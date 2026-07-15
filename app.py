@@ -28,7 +28,7 @@ from github_storage import (
 from slide_schema import SLIDES, make_default_deck
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.7"
+PROJECT_VERSION = "0.2.8"
 
 
 CUSTOM_SLIDES_KEY = "_custom_slides"
@@ -71,6 +71,62 @@ CUSTOM_SLIDE_FIELDS: List[Dict[str, Any]] = [
 ]
 
 
+STATS_DEFINITIONS_KEY = "_stats_definitions"
+STATS_DEFINITIONS_SLIDE_ID = "_statistics_definitions"
+STATS_DEFINITION_COLUMNS = ["Term", "Definition", "How to use clinically"]
+
+DEFAULT_STATS_DEFINITIONS: List[Dict[str, str]] = [
+    {
+        "Term": "p value",
+        "Definition": "How surprising the study result would be if there were truly no difference, assuming the study methods and model are correct.",
+        "How to use clinically": "Use it as one signal, not the whole answer. A small p value does not prove the result is clinically important.",
+    },
+    {
+        "Term": "Confidence interval",
+        "Definition": "A range of plausible values for the true effect, based on the data and assumptions of the study.",
+        "How to use clinically": "Look at the whole range. Ask whether the interval includes no effect and whether the possible benefit or harm would matter to patients.",
+    },
+    {
+        "Term": "RR / risk ratio",
+        "Definition": "Compares the probability of an outcome in one group with the probability in another group.",
+        "How to use clinically": "RR = 1 means no difference. Above 1 means higher risk; below 1 means lower risk. Always pair it with baseline risk.",
+    },
+    {
+        "Term": "OR / odds ratio",
+        "Definition": "Compares the odds of an outcome between two groups, not the direct probability of the outcome.",
+        "How to use clinically": "Useful in case-control studies and regression, but it can look larger than the risk ratio when outcomes are common.",
+    },
+    {
+        "Term": "Absolute risk difference",
+        "Definition": "The actual percentage-point difference in outcome rates between groups.",
+        "How to use clinically": "This is often the easiest number to use at the bedside because it shows how many more or fewer patients are affected.",
+    },
+]
+
+STATISTICS_DEFINITIONS_SCHEMA: Dict[str, Any] = {
+    "id": STATS_DEFINITIONS_SLIDE_ID,
+    "label": "Statistics Definitions",
+    "export_title": "Statistics Definitions",
+    "is_stats_definitions": True,
+    "fields": [
+        {
+            "key": STATS_DEFINITIONS_KEY,
+            "label": "Statistics definitions table",
+            "type": "table",
+            "required": False,
+            "max_rows": 12,
+            "columns": STATS_DEFINITION_COLUMNS,
+            "multiline_columns": ["Definition", "How to use clinically"],
+            "cell_height": 82,
+            "guide": (
+                "These resident-friendly definitions appear only in the 1-page summary DOCX, "
+                "on a separate statistics definitions page. They do not appear in the PowerPoint."
+            ),
+        }
+    ],
+}
+
+
 
 # -----------------------------
 # Performance / export helpers
@@ -91,13 +147,19 @@ EXPORT_CACHE_KEYS = [
 ARTICLE_DOWNLOAD_CACHE_PREFIX = "prepared_article_pdf__"
 
 
-def deck_export_signature(deck: Dict[str, Any]) -> str:
+def deck_export_signature(deck: Dict[str, Any], exclude_keys: List[str] | None = None) -> str:
     """Return a stable signature for the current editable deck.
 
     Export files are expensive to build. This signature lets the app reuse a
-    previously prepared PowerPoint/DOCX until the deck changes.
+    previously prepared PowerPoint/DOCX until the relevant deck content changes.
+    Optional exclude_keys are useful for content that appears only in certain
+    exports, such as statistics definitions that appear only in the summary DOCX.
     """
-    return json.dumps(deck, sort_keys=True, ensure_ascii=False, default=str)
+    snapshot = deepcopy(deck) if isinstance(deck, dict) else {}
+    for key in exclude_keys or []:
+        if isinstance(snapshot, dict):
+            snapshot.pop(key, None)
+    return json.dumps(snapshot, sort_keys=True, ensure_ascii=False, default=str)
 
 
 def clear_export_cache() -> None:
@@ -200,6 +262,7 @@ def normalize_deck(deck_or_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]
     deck = deck_or_payload.get("deck", deck_or_payload) if isinstance(deck_or_payload, dict) else {}
     default = make_default_deck()
     default[CUSTOM_SLIDES_KEY] = []
+    default[STATS_DEFINITIONS_KEY] = make_default_statistics_definitions()
 
     for slide in SLIDES:
         sid = slide["id"]
@@ -217,6 +280,11 @@ def normalize_deck(deck_or_payload: Dict[str, Any]) -> Dict[str, Dict[str, Any]]
                 for item in raw_custom_slides
                 if isinstance(item, dict)
             ][:MAX_CUSTOM_SLIDES]
+
+        if STATS_DEFINITIONS_KEY in deck:
+            default[STATS_DEFINITIONS_KEY] = normalize_statistics_definitions(
+                deck.get(STATS_DEFINITIONS_KEY, [])
+            )
 
     return default
 
@@ -275,6 +343,47 @@ def initialize_state() -> None:
     if "_slide_radio_version" not in st.session_state:
         st.session_state._slide_radio_version = 0
 
+
+
+def make_default_statistics_definitions() -> List[Dict[str, str]]:
+    """Return editable default rows for the statistics definitions table."""
+    return deepcopy(DEFAULT_STATS_DEFINITIONS)
+
+
+def normalize_statistics_definitions(rows: Any) -> List[Dict[str, str]]:
+    """Normalize saved statistics-definition rows into the current three columns."""
+    if not isinstance(rows, list):
+        return make_default_statistics_definitions()
+
+    normalized: List[Dict[str, str]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        normalized.append(
+            {
+                "Term": str(row.get("Term") or row.get("term") or "").strip(),
+                "Definition": str(row.get("Definition") or row.get("definition") or "").strip(),
+                "How to use clinically": str(
+                    row.get("How to use clinically")
+                    or row.get("Clinical interpretation")
+                    or row.get("clinical_interpretation")
+                    or row.get("how_to_use")
+                    or ""
+                ).strip(),
+            }
+        )
+
+    return normalized
+
+
+def get_statistics_definitions(deck: Dict[str, Any]) -> List[Dict[str, str]]:
+    """Return the editable statistics definitions list, creating defaults if missing."""
+    rows = deck.get(STATS_DEFINITIONS_KEY)
+    if not isinstance(rows, list):
+        deck[STATS_DEFINITIONS_KEY] = make_default_statistics_definitions()
+    else:
+        deck[STATS_DEFINITIONS_KEY] = normalize_statistics_definitions(rows)
+    return deck[STATS_DEFINITIONS_KEY]
 
 
 def get_custom_slides(deck: Dict[str, Any]) -> List[Dict[str, Any]]:
@@ -375,6 +484,7 @@ def get_navigation_slides(deck: Dict[str, Any]) -> List[Dict[str, Any]]:
                 # when the slide is moved earlier/later in the deck.
                 navigation_slides.append(make_custom_slide_schema(custom_slide, stored_index))
 
+    navigation_slides.append(STATISTICS_DEFINITIONS_SCHEMA)
     return navigation_slides
 
 
@@ -389,6 +499,10 @@ def get_selected_slide_and_data(deck: Dict[str, Any]) -> tuple[Dict[str, Any], D
     for idx, custom_slide in enumerate(get_custom_slides(deck), start=1):
         if custom_slide.get("id") == selected_id:
             return make_custom_slide_schema(custom_slide, idx), custom_slide
+
+    if selected_id == STATS_DEFINITIONS_SLIDE_ID:
+        get_statistics_definitions(deck)
+        return STATISTICS_DEFINITIONS_SCHEMA, deck
 
     st.session_state.selected_slide_id = SLIDES[0]["id"]
     return SLIDES[0], deck[SLIDES[0]["id"]]
@@ -428,6 +542,7 @@ def nav_label(slide: Dict[str, Any]) -> str:
         "month_skill": "Monthly Skill",
         "apply_back": "Apply Back to Patient",
         "final_bottom_line": "Final Bottom Line",
+        STATS_DEFINITIONS_SLIDE_ID: "Statistics Definitions",
     }
     return labels.get(slide["id"], slide["label"])
 
@@ -755,6 +870,8 @@ def render_table_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[st
         rows = [{col: "" for col in configured_columns}]
 
     max_rows = int(field.get("max_rows", 8) or 8)
+    multiline_columns = set(field.get("multiline_columns", []))
+    cell_height = int(field.get("cell_height", 80) or 80)
 
     st.caption(field.get("guide", ""))
 
@@ -805,11 +922,19 @@ def render_table_field(slide_id: str, slide_data: Dict[str, Any], field: Dict[st
             if cell_key not in st.session_state:
                 st.session_state[cell_key] = row.get(column_name, "")
 
-            updated_row[column_name] = row_cols[col_index].text_input(
-                f"{column_name} row {row_index + 1}",
-                key=cell_key,
-                label_visibility="collapsed",
-            )
+            if column_name in multiline_columns:
+                updated_row[column_name] = row_cols[col_index].text_area(
+                    f"{column_name} row {row_index + 1}",
+                    key=cell_key,
+                    height=cell_height,
+                    label_visibility="collapsed",
+                )
+            else:
+                updated_row[column_name] = row_cols[col_index].text_input(
+                    f"{column_name} row {row_index + 1}",
+                    key=cell_key,
+                    label_visibility="collapsed",
+                )
 
         updated_rows.append(updated_row)
 
@@ -1420,12 +1545,14 @@ def make_blank_deck() -> Dict[str, Dict[str, Any]]:
             else:
                 deck[slide["id"]][field_key] = ""
     deck[CUSTOM_SLIDES_KEY] = []
+    deck[STATS_DEFINITIONS_KEY] = make_default_statistics_definitions()
     return deck
     
 def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     problems = validate_deck(deck)
     timestamp = datetime.now().strftime("%Y%m%d")
-    signature = deck_export_signature(deck)
+    pptx_signature = deck_export_signature(deck, exclude_keys=[STATS_DEFINITIONS_KEY])
+    summary_signature = deck_export_signature(deck)
 
     render_archive_controls(deck)
     st.divider()
@@ -1454,7 +1581,7 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     if prepare_pptx:
         try:
             with st.spinner("Preparing PowerPoint..."):
-                mark_export_prepared("pptx", signature, build_powerpoint_export(deck))
+                mark_export_prepared("pptx", pptx_signature, build_powerpoint_export(deck))
             st.success("PowerPoint prepared.")
         except Exception as exc:
             st.error(f"Could not prepare PowerPoint: {exc}")
@@ -1462,13 +1589,13 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
     if prepare_summary:
         try:
             with st.spinner("Preparing 1-page summary..."):
-                mark_export_prepared("summary_docx", signature, build_summary_export(deck))
+                mark_export_prepared("summary_docx", summary_signature, build_summary_export(deck))
             st.success("1-page summary prepared.")
         except Exception as exc:
             st.error(f"Could not prepare 1-page summary: {exc}")
 
-    pptx_bytes = get_prepared_export_bytes("pptx", signature)
-    if export_needs_refresh("pptx", signature):
+    pptx_bytes = get_prepared_export_bytes("pptx", pptx_signature)
+    if export_needs_refresh("pptx", pptx_signature):
         st.warning("PowerPoint needs to be prepared again because the deck changed.")
 
     st.download_button(
@@ -1480,8 +1607,8 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
         use_container_width=True,
     )
 
-    summary_docx_bytes = get_prepared_export_bytes("summary_docx", signature)
-    if export_needs_refresh("summary_docx", signature):
+    summary_docx_bytes = get_prepared_export_bytes("summary_docx", summary_signature)
+    if export_needs_refresh("summary_docx", summary_signature):
         st.warning("1-page summary needs to be prepared again because the deck changed.")
 
     st.download_button(
@@ -1638,6 +1765,7 @@ def main() -> None:
                 if st.button("Reset to OxyKids Example", key="reset_oxykids_button", use_container_width=True):
                     st.session_state.deck = make_default_deck()
                     st.session_state.deck[CUSTOM_SLIDES_KEY] = []
+                    st.session_state.deck[STATS_DEFINITIONS_KEY] = make_default_statistics_definitions()
                     st.session_state.saved_article = {}
                     st.session_state.archive_id = ""
                     st.session_state.archive_path = ""

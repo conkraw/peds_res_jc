@@ -45,6 +45,34 @@ DOC_FONT = "Calibri"
 SECTION_GAP_PT = 8
 CUSTOM_SLIDES_KEY = "_custom_slides"
 DEFAULT_CUSTOM_SLIDE_INSERT_AFTER = "final_bottom_line"
+STATS_DEFINITIONS_KEY = "_stats_definitions"
+DEFAULT_STATS_DEFINITIONS = [
+    {
+        "Term": "p value",
+        "Definition": "How surprising the study result would be if there were truly no difference, assuming the study methods and model are correct.",
+        "How to use clinically": "Use it as one signal, not the whole answer. A small p value does not prove the result is clinically important.",
+    },
+    {
+        "Term": "Confidence interval",
+        "Definition": "A range of plausible values for the true effect, based on the data and assumptions of the study.",
+        "How to use clinically": "Look at the whole range. Ask whether the interval includes no effect and whether the possible benefit or harm would matter to patients.",
+    },
+    {
+        "Term": "RR / risk ratio",
+        "Definition": "Compares the probability of an outcome in one group with the probability in another group.",
+        "How to use clinically": "RR = 1 means no difference. Above 1 means higher risk; below 1 means lower risk. Always pair it with baseline risk.",
+    },
+    {
+        "Term": "OR / odds ratio",
+        "Definition": "Compares the odds of an outcome between two groups, not the direct probability of the outcome.",
+        "How to use clinically": "Useful in case-control studies and regression, but it can look larger than the risk ratio when outcomes are common.",
+    },
+    {
+        "Term": "Absolute risk difference",
+        "Definition": "The actual percentage-point difference in outcome rates between groups.",
+        "How to use clinically": "This is often the easiest number to use at the bedside because it shows how many more or fewer patients are affected.",
+    },
+]
 
 EMU_PER_INCH = 914400
 TWIPS_PER_INCH = 1440
@@ -527,6 +555,82 @@ def _add_editable_table(doc: Document, label: str, rows: Any) -> None:
     _add_spacer(doc, SECTION_GAP_PT)
 
 
+def _normalize_statistics_definitions(rows: Any) -> List[Dict[str, str]]:
+    """Return cleaned statistics-definition rows for the summary appendix page."""
+    if not isinstance(rows, list):
+        rows = DEFAULT_STATS_DEFINITIONS
+
+    normalized: List[Dict[str, str]] = []
+    for row in rows:
+        if not isinstance(row, dict):
+            continue
+        normalized_row = {
+            "Term": _safe_text(row.get("Term") or row.get("term")),
+            "Definition": _safe_text(row.get("Definition") or row.get("definition")),
+            "How to use clinically": _safe_text(
+                row.get("How to use clinically")
+                or row.get("Clinical interpretation")
+                or row.get("clinical_interpretation")
+                or row.get("how_to_use")
+            ),
+        }
+        if any(normalized_row.values()):
+            normalized.append(normalized_row)
+
+    return normalized
+
+
+def _add_statistics_definitions_table(doc: Document, rows: List[Dict[str, str]]) -> None:
+    """Add a resident-friendly statistics definitions table."""
+    if not rows:
+        return
+
+    _add_banner(doc, "Resident-Friendly Statistics Definitions")
+
+    table = doc.add_table(rows=1, cols=3)
+    _style_table_grid(table)
+    headers = ["Term", "Definition", "How to use clinically"]
+    for idx, header in enumerate(headers):
+        cell = table.rows[0].cells[idx]
+        _shade_cell(cell, HEADER_GRAY)
+        _write_cell_text(cell, header.upper(), font_size=8.6, bold=True, align=WD_ALIGN_PARAGRAPH.CENTER)
+
+    for row in rows:
+        cells = table.add_row().cells
+        _shade_cell(cells[0], WHITE)
+        _shade_cell(cells[1], WHITE)
+        _shade_cell(cells[2], WHITE)
+        _write_cell_text(cells[0], row.get("Term", ""), font_size=8.6, bold=True)
+        _write_cell_text(cells[1], row.get("Definition", ""), font_size=8.4, line_spacing=1.02)
+        _write_cell_text(cells[2], row.get("How to use clinically", ""), font_size=8.4, line_spacing=1.02)
+
+    total_width = _body_width_inches(doc)
+    _set_table_widths(table, [1.2, total_width * 0.43, total_width - 1.2 - (total_width * 0.43)])
+    _add_spacer(doc, SECTION_GAP_PT)
+
+
+def _add_statistics_definitions_page(doc: Document, deck: Dict[str, Any]) -> None:
+    """Append a separated quick-reference page to the 1-page summary DOCX."""
+    rows = _normalize_statistics_definitions(deck.get(STATS_DEFINITIONS_KEY, DEFAULT_STATS_DEFINITIONS))
+    if not rows:
+        return
+
+    doc.add_page_break()
+    _add_document_title_block(
+        doc,
+        "Statistics Definitions",
+        "Resident-friendly quick reference for interpreting the article",
+        kicker="PEDIATRIC RESIDENCY JOURNAL CLUB BUILDER",
+    )
+    _add_field_box(
+        doc,
+        "How to use this page",
+        "Use this quick reference to translate common study statistics into clinical meaning. The goal is not to memorize formulas; the goal is to explain what a result does and does not tell us at the bedside.",
+        content_font_size=8.8,
+    )
+    _add_statistics_definitions_table(doc, rows)
+
+
 # -----------------------------
 # QR / feedback helpers
 # -----------------------------
@@ -643,6 +747,9 @@ def build_word_summary(deck: Dict[str, Dict[str, Any]]) -> BytesIO:
 
     _add_banner(doc, "Resident Take-Home")
     _add_field_box(doc, "Take-Home Sentence", final.get("resident_take_home", ""), content_font_size=8.8)
+
+    # Keep the main summary intact and put definitions on a separated companion page.
+    _add_statistics_definitions_page(doc, deck)
 
     # _add_feedback_block(doc)
 
