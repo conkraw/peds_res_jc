@@ -77,14 +77,14 @@ STATS_DEFINITION_COLUMNS = ["Term", "Definition", "How to use clinically"]
 
 DEFAULT_STATS_DEFINITIONS: List[Dict[str, str]] = [
     {
-        "Term": "p value",
-        "Definition": "How surprising the study result would be if there were truly no difference, assuming the study methods and model are correct.",
-        "How to use clinically": "Use it as one signal, not the whole answer. A small p value does not prove the result is clinically important.",
+       "Term": "p value",
+        "Definition": "Think of it as a 'chance score.' It estimates how likely the study results would be if there really was no difference between the groups.",
+        "How to use clinically": "The smaller the p value, the less likely the results are due to chance alone. It does not tell you how big or meaningful the benefit is.",
     },
     {
-        "Term": "Confidence interval",
-        "Definition": "A range of plausible values for the true effect, based on the data and assumptions of the study.",
-        "How to use clinically": "Look at the whole range. Ask whether the interval includes no effect and whether the possible benefit or harm would matter to patients.",
+  "Term": "Confidence interval",
+  "Definition": "A range showing how big the true effect could realistically be.",
+  "How to use clinically": "Narrow intervals mean more precise estimates. Wide intervals mean more uncertainty. Consider whether the range would change patient care.",
     },
     {
         "Term": "RR / risk ratio",
@@ -92,9 +92,9 @@ DEFAULT_STATS_DEFINITIONS: List[Dict[str, str]] = [
         "How to use clinically": "RR = 1 means no difference. Above 1 means higher risk; below 1 means lower risk. Always pair it with baseline risk.",
     },
     {
-        "Term": "OR / odds ratio",
-        "Definition": "Compares the odds of an outcome between two groups, not the direct probability of the outcome.",
-        "How to use clinically": "Useful in case-control studies and regression, but it can look larger than the risk ratio when outcomes are common.",
+        "Term": "Odds ratio (OR)",
+        "Definition": "Shows how much more or less likely an outcome is in one group compared with another using odds.",
+        "How to use clinically": "1 = no difference. Greater than 1 = higher odds of the outcome. Less than 1 = lower odds of the outcome. Remember that ORs can exaggerate the size of an effect when the outcome is common.",
     },
     {
         "Term": "Absolute risk difference",
