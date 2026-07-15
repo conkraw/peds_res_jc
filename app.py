@@ -28,7 +28,7 @@ from github_storage import (
 from slide_schema import SLIDES, make_default_deck
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.8"
+PROJECT_VERSION = "0.2.9"
 
 
 CUSTOM_SLIDES_KEY = "_custom_slides"
@@ -77,14 +77,14 @@ STATS_DEFINITION_COLUMNS = ["Term", "Definition", "How to use clinically"]
 
 DEFAULT_STATS_DEFINITIONS: List[Dict[str, str]] = [
     {
-       "Term": "p value",
-        "Definition": "Think of it as a 'chance score.' It estimates how likely the study results would be if there really was no difference between the groups.",
-        "How to use clinically": "The smaller the p value, the less likely the results are due to chance alone. It does not tell you how big or meaningful the benefit is.",
+        "Term": "p value",
+        "Definition": "How surprising the study result would be if there were truly no difference, assuming the study methods and model are correct.",
+        "How to use clinically": "Use it as one signal, not the whole answer. A small p value does not prove the result is clinically important.",
     },
     {
-  "Term": "Confidence interval",
-  "Definition": "A range showing how big the true effect could realistically be.",
-  "How to use clinically": "Narrow intervals mean more precise estimates. Wide intervals mean more uncertainty. Consider whether the range would change patient care.",
+        "Term": "Confidence interval",
+        "Definition": "A range of plausible values for the true effect, based on the data and assumptions of the study.",
+        "How to use clinically": "Look at the whole range. Ask whether the interval includes no effect and whether the possible benefit or harm would matter to patients.",
     },
     {
         "Term": "RR / risk ratio",
@@ -92,9 +92,9 @@ DEFAULT_STATS_DEFINITIONS: List[Dict[str, str]] = [
         "How to use clinically": "RR = 1 means no difference. Above 1 means higher risk; below 1 means lower risk. Always pair it with baseline risk.",
     },
     {
-        "Term": "Odds ratio (OR)",
-        "Definition": "Shows how much more or less likely an outcome is in one group compared with another using odds.",
-        "How to use clinically": "1 = no difference. Greater than 1 = higher odds of the outcome. Less than 1 = lower odds of the outcome. Remember that ORs can exaggerate the size of an effect when the outcome is common.",
+        "Term": "OR / odds ratio",
+        "Definition": "Compares the odds of an outcome between two groups, not the direct probability of the outcome.",
+        "How to use clinically": "Useful in case-control studies and regression, but it can look larger than the risk ratio when outcomes are common.",
     },
     {
         "Term": "Absolute risk difference",
@@ -234,6 +234,115 @@ def build_printable_form_fallback(deck: Dict[str, Any]) -> bytes | None:
         return None
     return build_printable_planning_form(deck)
 
+
+# -----------------------------
+# Autosave helpers
+# -----------------------------
+
+
+def autosave_is_ready() -> bool:
+    """Autosave can update an existing Archive draft after the first manual save/reload."""
+    return bool(
+        st.session_state.get("autosave_enabled", True)
+        and github_backup_is_configured()
+        and str(st.session_state.get("archive_path", "") or "").strip()
+        and str(st.session_state.get("archive_id", "") or "").strip()
+    )
+
+
+def autosave_current_draft(deck: Dict[str, Any], reason: str = "autosave") -> bool:
+    """Update the current GitHub Archive draft if autosave is active.
+
+    Autosave intentionally updates only the JSON draft. If the resident uploads
+    or replaces the article PDF, they should still use Save Draft To Archive so
+    the article file itself is uploaded and linked correctly.
+    """
+    if not autosave_is_ready():
+        return False
+
+    signature = deck_export_signature(deck)
+    if signature == str(st.session_state.get("autosave_last_signature", "") or ""):
+        return False
+
+    archive_path = str(st.session_state.get("archive_path", "") or "").strip().lstrip("/")
+    archive_id = str(st.session_state.get("archive_id", "") or "").strip()
+    saved_article = st.session_state.get("saved_article", {}) or {}
+
+    presenter_name = str(st.session_state.get("archive_presenter_name", "") or "").strip()
+    if not presenter_name:
+        presenter_name = str(st.session_state.get("github_presenter_name", "") or "").strip()
+    if not presenter_name:
+        presenter_name = "Autosaved Draft"
+
+    session_title = str(st.session_state.get("archive_session_title", "") or "").strip()
+    if not session_title:
+        session_title = str(st.session_state.get("github_session_title", "") or "").strip()
+    if not session_title:
+        session_title = default_session_title(deck)
+
+    try:
+        result = save_draft_to_github(
+            deck=deck,
+            presenter_name=presenter_name,
+            session_title=session_title,
+            app_version=PROJECT_VERSION,
+            article=saved_article,
+            archive_id=archive_id,
+            existing_path=archive_path,
+        )
+        st.session_state.archive_path = result.path
+        st.session_state.archive_presenter_name = presenter_name
+        st.session_state.archive_session_title = session_title
+        st.session_state.autosave_last_signature = signature
+        st.session_state.autosave_last_at = datetime.now().strftime("%I:%M:%S %p")
+        st.session_state.autosave_last_reason = reason
+        st.session_state.autosave_last_error = ""
+        return True
+    except Exception as exc:
+        st.session_state.autosave_last_error = str(exc)
+        return False
+
+
+def render_autosave_status(deck: Dict[str, Any]) -> None:
+    """Show autosave controls/status in the sidebar."""
+    with st.container(border=True):
+        st.markdown("**Autosave**")
+        st.checkbox(
+            "Autosave when changing slides",
+            key="autosave_enabled",
+            help=(
+                "After the first manual Archive save, the app updates the same "
+                "draft JSON when you move to another slide. Article PDF uploads "
+                "still require Save Draft To Archive."
+            ),
+        )
+
+        if autosave_is_ready():
+            st.success("Active after first Archive save")
+            last_at = str(st.session_state.get("autosave_last_at", "") or "").strip()
+            last_reason = str(st.session_state.get("autosave_last_reason", "") or "").strip()
+            if last_at:
+                st.caption(f"Last autosave: {last_at}" + (f" ({last_reason})" if last_reason else ""))
+            else:
+                st.caption("No autosave yet this session.")
+
+            if st.button("Autosave now", key="autosave_now_button", use_container_width=True):
+                saved = autosave_current_draft(deck, reason="manual")
+                if saved:
+                    st.success("Autosaved.")
+                else:
+                    st.info("No changes to autosave.")
+        else:
+            if github_backup_is_configured():
+                st.info("Autosave starts after the first Save Draft To Archive or after you reload an archived draft.")
+            else:
+                st.info("Autosave starts after GitHub Archive is configured.")
+
+        error = str(st.session_state.get("autosave_last_error", "") or "").strip()
+        if error:
+            st.warning(f"Last autosave issue: {error}")
+
+
 # -----------------------------
 # Utility functions
 # -----------------------------
@@ -342,6 +451,20 @@ def initialize_state() -> None:
         st.session_state.export_cache_initialized = True
     if "_slide_radio_version" not in st.session_state:
         st.session_state._slide_radio_version = 0
+    if "autosave_enabled" not in st.session_state:
+        st.session_state.autosave_enabled = True
+    if "autosave_last_signature" not in st.session_state:
+        st.session_state.autosave_last_signature = ""
+    if "autosave_last_at" not in st.session_state:
+        st.session_state.autosave_last_at = ""
+    if "autosave_last_reason" not in st.session_state:
+        st.session_state.autosave_last_reason = ""
+    if "autosave_last_error" not in st.session_state:
+        st.session_state.autosave_last_error = ""
+    if "archive_presenter_name" not in st.session_state:
+        st.session_state.archive_presenter_name = ""
+    if "archive_session_title" not in st.session_state:
+        st.session_state.archive_session_title = ""
 
 
 
@@ -604,7 +727,11 @@ def sync_selected_slide() -> None:
     radio_key = st.session_state.get("_slide_radio_key", "")
     selected_label = st.session_state.get(radio_key)
     if selected_label in label_to_id:
-        st.session_state.selected_slide_id = label_to_id[selected_label]
+        new_slide_id = label_to_id[selected_label]
+        old_slide_id = str(st.session_state.get("selected_slide_id", "") or "")
+        if new_slide_id != old_slide_id:
+            autosave_current_draft(st.session_state.deck, reason="slide change")
+        st.session_state.selected_slide_id = new_slide_id
 
 
 def validate_field(value: Any, field: Dict[str, Any]) -> List[str]:
@@ -1071,6 +1198,15 @@ def apply_loaded_payload_to_session(loaded: Dict[str, Any], source_path: str = "
     st.session_state.archive_id = archive_id
     st.session_state.archive_path = archive_path
 
+    if isinstance(loaded, dict):
+        st.session_state.archive_presenter_name = str(loaded.get("presenter_name", "") or "").strip()
+        st.session_state.archive_session_title = str(loaded.get("session_title", "") or "").strip()
+
+    st.session_state.autosave_last_signature = deck_export_signature(st.session_state.deck)
+    st.session_state.autosave_last_at = ""
+    st.session_state.autosave_last_reason = ""
+    st.session_state.autosave_last_error = ""
+
     clear_export_cache()
     clear_widget_state()
 
@@ -1200,6 +1336,12 @@ def render_github_backup(deck: Dict[str, Dict[str, Any]]) -> None:
                     existing_path=archive_path,
                 )
                 st.session_state.archive_path = result.path
+                st.session_state.archive_presenter_name = presenter_name.strip()
+                st.session_state.archive_session_title = session_title.strip()
+                st.session_state.autosave_last_signature = deck_export_signature(deck)
+                st.session_state.autosave_last_at = datetime.now().strftime("%I:%M:%S %p")
+                st.session_state.autosave_last_reason = "manual save"
+                st.session_state.autosave_last_error = ""
 
                 messages = ["Draft saved to Archive."]
 
@@ -1697,10 +1839,14 @@ def main() -> None:
         ):
             new_slide = make_new_custom_slide(default_insert_after_for_new_custom_slide(st.session_state.deck))
             custom_slides.append(new_slide)
+            autosave_current_draft(st.session_state.deck, reason="optional slide added")
             request_slide_selection(new_slide["id"], f"Optional Slide {len(custom_slides)}")
             clear_export_cache()
             clear_widget_state()
             st.rerun()
+
+        st.divider()
+        render_autosave_status(st.session_state.deck)
 
         st.divider()
 
@@ -1769,6 +1915,12 @@ def main() -> None:
                     st.session_state.saved_article = {}
                     st.session_state.archive_id = ""
                     st.session_state.archive_path = ""
+                    st.session_state.archive_presenter_name = ""
+                    st.session_state.archive_session_title = ""
+                    st.session_state.autosave_last_signature = ""
+                    st.session_state.autosave_last_at = ""
+                    st.session_state.autosave_last_reason = ""
+                    st.session_state.autosave_last_error = ""
                     clear_export_cache()
                     clear_widget_state()
                     st.success("Reset complete.")
@@ -1779,6 +1931,12 @@ def main() -> None:
                     st.session_state.saved_article = {}
                     st.session_state.archive_id = ""
                     st.session_state.archive_path = ""
+                    st.session_state.archive_presenter_name = ""
+                    st.session_state.archive_session_title = ""
+                    st.session_state.autosave_last_signature = ""
+                    st.session_state.autosave_last_at = ""
+                    st.session_state.autosave_last_reason = ""
+                    st.session_state.autosave_last_error = ""
                     clear_export_cache()
                 
                     for slide in SLIDES:
@@ -1819,6 +1977,7 @@ def main() -> None:
                     use_container_width=True,
                 ):
                     remove_custom_slide(st.session_state.deck, selected_slide["id"])
+                    autosave_current_draft(st.session_state.deck, reason="optional slide removed")
                     request_slide_selection(SLIDES[0]["id"], nav_label(SLIDES[0]))
                     clear_export_cache()
                     clear_widget_state()
