@@ -1,10 +1,12 @@
 from __future__ import annotations
 
+import csv
 import json
 import re
 import uuid
 from copy import deepcopy
 from datetime import datetime
+from io import StringIO
 from pathlib import Path
 from typing import Any, Dict, List
 
@@ -28,7 +30,7 @@ from github_storage import (
 from slide_schema import SLIDES, make_default_deck
 
 APP_TITLE = "Journal Club PowerPoint Builder"
-PROJECT_VERSION = "0.2.9"
+PROJECT_VERSION = "0.2.10"
 
 
 CUSTOM_SLIDES_KEY = "_custom_slides"
@@ -74,17 +76,18 @@ CUSTOM_SLIDE_FIELDS: List[Dict[str, Any]] = [
 STATS_DEFINITIONS_KEY = "_stats_definitions"
 STATS_DEFINITIONS_SLIDE_ID = "_statistics_definitions"
 STATS_DEFINITION_COLUMNS = ["Term", "Definition", "How to use clinically"]
+STATS_LIBRARY_FILE = "stats_definitions.tsv"
 
 DEFAULT_STATS_DEFINITIONS: List[Dict[str, str]] = [
     {
-      "Term": "p value",
-      "Definition": "Answers the question: 'If there really were no difference between the groups, how likely is it that we would see results like this just by chance?'",
-      "How to use clinically": "Smaller p values mean the results are less likely to be explained by chance alone. They do not tell you how big or clinically important the effect is."
+        "Term": "p value",
+        "Definition": "How surprising the study result would be if there were truly no difference, assuming the study methods and model are correct.",
+        "How to use clinically": "Use it as one signal, not the whole answer. A small p value does not prove the result is clinically important.",
     },
     {
-      "Term": "Confidence interval",
-      "Definition": "A range showing how big the true effect could realistically be.",
-      "How to use clinically": "Look at the entire range, not just the average result. Narrow intervals mean more precise estimates; wide intervals mean more uncertainty. Ask whether the possible benefit or harm across the range would change patient care."
+        "Term": "Confidence interval",
+        "Definition": "A range of plausible values for the true effect, based on the data and assumptions of the study.",
+        "How to use clinically": "Look at the whole range. Ask whether the interval includes no effect and whether the possible benefit or harm would matter to patients.",
     },
     {
         "Term": "RR / risk ratio",
@@ -92,9 +95,9 @@ DEFAULT_STATS_DEFINITIONS: List[Dict[str, str]] = [
         "How to use clinically": "RR = 1 means no difference. Above 1 means higher risk; below 1 means lower risk. Always pair it with baseline risk.",
     },
     {
-      "Term": "Odds ratio (OR)",
-      "Definition": "Shows how much more or less likely an outcome is in one group compared with another using odds.",
-      "How to use clinically": "1 = no difference. Greater than 1 = higher odds of the outcome. Less than 1 = lower odds of the outcome. Remember that ORs can exaggerate the size of an effect when the outcome is common."
+        "Term": "OR / odds ratio",
+        "Definition": "Compares the odds of an outcome between two groups, not the direct probability of the outcome.",
+        "How to use clinically": "Useful in case-control studies and regression, but it can look larger than the risk ratio when outcomes are common.",
     },
     {
         "Term": "Absolute risk difference",
@@ -114,7 +117,7 @@ STATISTICS_DEFINITIONS_SCHEMA: Dict[str, Any] = {
             "label": "Statistics definitions table",
             "type": "table",
             "required": False,
-            "max_rows": 12,
+            "max_rows": 25,
             "columns": STATS_DEFINITION_COLUMNS,
             "multiline_columns": ["Definition", "How to use clinically"],
             "cell_height": 82,
@@ -468,9 +471,92 @@ def initialize_state() -> None:
 
 
 
+def _canonical_stats_column_name(value: Any) -> str:
+    """Map common text-file headers to the app's three statistics columns."""
+    cleaned = re.sub(r"[^a-z0-9]+", "_", str(value or "").strip().lower()).strip("_")
+    aliases = {
+        "term": "Term",
+        "statistic": "Term",
+        "name": "Term",
+        "definition": "Definition",
+        "meaning": "Definition",
+        "how_to_use_clinically": "How to use clinically",
+        "how_to_use": "How to use clinically",
+        "clinical_interpretation": "How to use clinically",
+        "clinical_use": "How to use clinically",
+        "interpretation": "How to use clinically",
+    }
+    return aliases.get(cleaned, str(value or "").strip())
+
+
+def parse_statistics_library_text(text: str) -> List[Dict[str, str]]:
+    """Parse a resident-friendly statistics library text file.
+
+    Preferred format: tab-separated text with this header:
+    Term    Definition    How to use clinically
+
+    A TSV file is intentionally used instead of CSV because definitions often
+    contain commas. Blank lines and lines beginning with # are ignored.
+    """
+    usable_lines = [
+        line.rstrip("\n")
+        for line in str(text or "").splitlines()
+        if line.strip() and not line.lstrip().startswith("#")
+    ]
+    if not usable_lines:
+        return []
+
+    delimiter = "\t" if any("\t" in line for line in usable_lines[:3]) else ","
+    reader = csv.DictReader(StringIO("\n".join(usable_lines)), delimiter=delimiter)
+    if not reader.fieldnames:
+        return []
+
+    field_map = {field: _canonical_stats_column_name(field) for field in reader.fieldnames}
+    rows: List[Dict[str, str]] = []
+    for raw_row in reader:
+        normalized = {column: "" for column in STATS_DEFINITION_COLUMNS}
+        for raw_key, raw_value in (raw_row or {}).items():
+            column = field_map.get(raw_key, raw_key)
+            if column in normalized:
+                normalized[column] = str(raw_value or "").strip()
+        if any(normalized.values()):
+            rows.append(normalized)
+    return rows
+
+
+@st.cache_data(show_spinner=False)
+def load_statistics_definitions_from_library(path: str = STATS_LIBRARY_FILE) -> List[Dict[str, str]]:
+    """Load default statistics definitions from a GitHub-tracked text file.
+
+    In Streamlit Cloud, this reads the file committed with the app repository.
+    Edit `stats_definitions.tsv` in GitHub, commit it, and the next app deploy
+    will use the updated library for new blank drafts and reset actions.
+    """
+    library_path = Path(path)
+    if not library_path.exists():
+        return []
+    try:
+        rows = parse_statistics_library_text(library_path.read_text(encoding="utf-8-sig"))
+    except Exception:
+        return []
+    return normalize_statistics_definitions(rows) if rows else []
+
+
+def statistics_definitions_to_tsv(rows: Any) -> str:
+    """Export the current statistics definitions as editable TSV text."""
+    normalized = normalize_statistics_definitions(rows)
+    output = StringIO()
+    writer = csv.DictWriter(output, fieldnames=STATS_DEFINITION_COLUMNS, delimiter="\t", lineterminator="\n")
+    writer.writeheader()
+    for row in normalized:
+        writer.writerow({column: row.get(column, "") for column in STATS_DEFINITION_COLUMNS})
+    return output.getvalue()
+
+
 def make_default_statistics_definitions() -> List[Dict[str, str]]:
     """Return editable default rows for the statistics definitions table."""
-    return deepcopy(DEFAULT_STATS_DEFINITIONS)
+    library_rows = load_statistics_definitions_from_library()
+    return deepcopy(library_rows or DEFAULT_STATS_DEFINITIONS)
 
 
 def normalize_statistics_definitions(rows: Any) -> List[Dict[str, str]]:
@@ -1863,15 +1949,42 @@ def main() -> None:
             with st.container(border=True):
                 st.markdown("**Advanced drafts/reset**")
 
-                #uploaded = st.file_uploader("Load a saved draft JSON",type=["json"],key="advanced_uploaded_draft_json",)
-                #if uploaded is not None:
-                #    if st.button("Load uploaded draft", key="load_uploaded_json_button", use_container_width=True):
-                #        try:
-                #            loaded = json.loads(uploaded.getvalue().decode("utf-8"))
-                #            apply_loaded_payload_to_session(loaded)
-                #            st.success("Draft loaded.")
-                #        except Exception as exc:
-                #            st.error(f"Could not load draft: {exc}")
+                st.caption(
+                    "Load an already appraised journal club JSON file. This loads the content into the app, "
+                    "but it does not autosave or overwrite a GitHub archive until you manually save it."
+                )
+                uploaded = st.file_uploader(
+                    "Load a saved/appraised draft JSON",
+                    type=["json"],
+                    key="advanced_uploaded_draft_json",
+                )
+                if uploaded is not None:
+                    if st.button("Load uploaded JSON draft", key="load_uploaded_json_button", use_container_width=True):
+                        try:
+                            loaded = json.loads(uploaded.getvalue().decode("utf-8"))
+                            apply_loaded_payload_to_session(loaded, source_path="")
+
+                            # Treat an uploaded JSON as a local/imported draft, not as an active
+                            # GitHub archive record. The next manual Save Draft To Archive will
+                            # create or choose the correct archive destination.
+                            st.session_state.archive_id = ""
+                            st.session_state.archive_path = ""
+                            st.session_state.autosave_last_signature = ""
+                            st.session_state.autosave_last_at = ""
+                            st.session_state.autosave_last_reason = ""
+                            st.session_state.autosave_last_error = ""
+                            if isinstance(loaded, dict):
+                                st.session_state.archive_presenter_name = str(loaded.get("presenter_name", "") or "")
+                                st.session_state.archive_session_title = str(loaded.get("session_title", "") or "")
+                            request_slide_selection(SLIDES[0]["id"], nav_label(SLIDES[0]))
+                            clear_export_cache()
+                            clear_widget_state()
+                            st.success("Uploaded JSON draft loaded. Save it to Archive when you are ready.")
+                            st.rerun()
+                        except Exception as exc:
+                            st.error(f"Could not load draft JSON: {exc}")
+
+                st.divider()
 
                 st.caption(
                     "Mentor review export creates an editable DOCX with the slide text, reviewer guidelines, and Track Changes enabled."
@@ -1985,6 +2098,38 @@ def main() -> None:
 
             for field in selected_slide["fields"]:
                 render_field(selected_slide["id"], selected_slide_data, field)
+
+            if selected_slide.get("is_stats_definitions"):
+                st.markdown("### Shared statistics library")
+                st.caption(
+                    "New blank drafts start from `stats_definitions.tsv` if that file exists in your GitHub repo. "
+                    "Edit that text file over the year to maintain your core definitions. The table above remains editable for this specific journal club."
+                )
+                stats_cols = st.columns(2)
+                with stats_cols[0]:
+                    if st.button(
+                        "Reset this table from stats_definitions.tsv",
+                        key="reset_stats_from_library_button",
+                        use_container_width=True,
+                    ):
+                        try:
+                            load_statistics_definitions_from_library.clear()
+                        except Exception:
+                            pass
+                        st.session_state.deck[STATS_DEFINITIONS_KEY] = make_default_statistics_definitions()
+                        clear_table_cell_state(STATS_DEFINITIONS_SLIDE_ID, STATS_DEFINITIONS_KEY)
+                        clear_export_cache()
+                        st.success("Statistics definitions reloaded from the shared library.")
+                        st.rerun()
+                with stats_cols[1]:
+                    st.download_button(
+                        "Download current stats table as TSV",
+                        data=statistics_definitions_to_tsv(get_statistics_definitions(st.session_state.deck)).encode("utf-8"),
+                        file_name=STATS_LIBRARY_FILE,
+                        mime="text/tab-separated-values",
+                        use_container_width=True,
+                    )
+
             if selected_slide["id"] == "title_goal":
                 st.markdown("### Journal article upload")
             

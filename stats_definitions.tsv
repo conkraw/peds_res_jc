@@ -1,0 +1,7 @@
+Term	Definition	How to use clinically
+p value	How surprising the study result would be if there were truly no difference, assuming the study methods and model are correct.	Use it as one signal, not the whole answer. A small p value does not prove the result is clinically important.
+Confidence interval	A range showing how big the true effect could realistically be.	Look at the entire range. Narrow intervals mean more precise estimates; wide intervals mean more uncertainty. Ask whether the possible benefit or harm would matter to patients.
+RR / risk ratio	Compares the probability of an outcome in one group with the probability in another group.	RR = 1 means no difference. Above 1 means higher risk; below 1 means lower risk. Always pair it with baseline risk.
+OR / odds ratio	Compares the odds of an outcome between two groups, not the direct probability of the outcome.	OR = 1 means no difference. Above 1 means higher odds; below 1 means lower odds. It can look larger than risk ratio when outcomes are common.
+Absolute risk difference	The actual percentage-point difference in outcome rates between groups.	This is often the easiest number to use at the bedside because it shows how many more or fewer patients are affected.
+Number needed to treat (NNT)	How many patients need the intervention for one additional patient to benefit.	Lower NNTs usually mean bigger practical impact, but only if the outcome matters and the study population matches your patient.
