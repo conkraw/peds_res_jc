@@ -183,6 +183,31 @@ def load_static_printable_form_bytes(path: str = "journal_club_printable_plannin
     return None
 
 
+def coerce_export_to_bytes(data: Any) -> bytes:
+    """Convert BytesIO or bytes returned by builders into real bytes for Streamlit downloads.
+
+    Several builders return a BytesIO stream. Streamlit can sometimes accept a
+    stream directly, but our prepared-export cache intentionally stores plain
+    bytes so the prepared file survives reruns and the Download button can be
+    enabled reliably.
+    """
+    if data is None:
+        return b""
+    if isinstance(data, bytes):
+        return data
+    if isinstance(data, bytearray):
+        return bytes(data)
+    if hasattr(data, "getvalue"):
+        return data.getvalue()
+    if hasattr(data, "read"):
+        try:
+            data.seek(0)
+        except Exception:
+            pass
+        return data.read()
+    raise TypeError(f"Export builder returned unsupported data type: {type(data).__name__}")
+
+
 def get_prepared_export_bytes(kind: str, signature: str) -> bytes | None:
     """Return cached export bytes only if they match the current deck."""
     data_key = f"prepared_{kind}_bytes"
@@ -194,9 +219,16 @@ def get_prepared_export_bytes(kind: str, signature: str) -> bytes | None:
     return None
 
 
-def mark_export_prepared(kind: str, signature: str, data: bytes) -> None:
-    """Store prepared export bytes in session state."""
-    st.session_state[f"prepared_{kind}_bytes"] = data
+def mark_export_prepared(kind: str, signature: str, data: Any) -> None:
+    """Store prepared export bytes in session state.
+
+    Always store bytes, not BytesIO. This fixes the case where the app says an
+    export was prepared but the Download button stays disabled.
+    """
+    export_bytes = coerce_export_to_bytes(data)
+    if not export_bytes:
+        raise ValueError("The export builder returned an empty file.")
+    st.session_state[f"prepared_{kind}_bytes"] = export_bytes
     st.session_state[f"prepared_{kind}_signature"] = signature
     st.session_state[f"prepared_{kind}_timestamp"] = datetime.now().strftime("%H:%M:%S")
 
@@ -1834,6 +1866,8 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
         disabled=bool(problems) or pptx_bytes is None,
         use_container_width=True,
     )
+    if pptx_bytes is not None:
+        st.caption(f"PowerPoint ready from {st.session_state.get('prepared_pptx_timestamp', 'this session')}.")
 
     summary_docx_bytes = get_prepared_export_bytes("summary_docx", summary_signature)
     if export_needs_refresh("summary_docx", summary_signature):
@@ -1847,6 +1881,8 @@ def render_downloads(deck: Dict[str, Dict[str, Any]]) -> None:
         disabled=bool(problems) or summary_docx_bytes is None,
         use_container_width=True,
     )
+    if summary_docx_bytes is not None:
+        st.caption(f"1-page summary ready from {st.session_state.get('prepared_summary_docx_timestamp', 'this session')}.")
 
     printable_form = load_static_printable_form_bytes()
     if printable_form is None:
@@ -2018,6 +2054,8 @@ def main() -> None:
                     disabled=review_docx_bytes is None,
                     use_container_width=True,
                 )
+                if review_docx_bytes is not None:
+                    st.caption(f"Mentor review DOCX ready from {st.session_state.get('prepared_review_docx_timestamp', 'this session')}.")
 
                 st.divider()
 
