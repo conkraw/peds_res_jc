@@ -607,14 +607,58 @@ def _build_pico_reveal_slide(prs, deck, reveal_count: int):
     """Build one step of the PICO slide.
 
     PowerPoint animations are fragile when generated from python-pptx. Instead,
-    this creates a short progressive-reveal sequence: first P, then P+I, then
-    P+I+C, then the full PICO slide. In slideshow mode, the learner simply
-    clicks Next and each element appears in order.
+    this creates a short progressive-reveal sequence using duplicate slides.
+    The first slide is a prompt-only slide so residents can guess the P before
+    any part of the answer appears. Subsequent clicks reveal P, then I, then C,
+    then O, followed by the plain-language question.
     """
     data = deck["pico"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "The Study Question", "PICO")
     _add_pico_progress_dots(slide, reveal_count)
+
+    if reveal_count == 0:
+        add_section_label(slide, 2.55, 1.72, 8.2, "PICO Practice")
+        add_textbox(
+            slide,
+            1.35,
+            2.42,
+            10.65,
+            1.15,
+            "Before revealing the article’s PICO, ask residents to identify the P first.",
+            font_size=24,
+            bold=True,
+            color=COLOR_ACCENT,
+            align=PP_ALIGN.CENTER,
+            fill=COLOR_ACCENT_LIGHT,
+        )
+        add_textbox(
+            slide,
+            1.65,
+            4.05,
+            10.05,
+            0.85,
+            "What patient population or clinical problem is this study actually about?",
+            font_size=24,
+            bold=True,
+            color=COLOR_DARK,
+            align=PP_ALIGN.CENTER,
+        )
+        add_textbox(
+            slide,
+            2.25,
+            5.25,
+            8.85,
+            0.52,
+            "Discuss first. Then click next to reveal P.",
+            font_size=18,
+            bold=True,
+            color=COLOR_ACCENT,
+            align=PP_ALIGN.CENTER,
+            fill=COLOR_LIGHT_GRAY,
+        )
+        add_footer(slide)
+        return slide
 
     y = 1.35
     for idx, (letter, label, key) in enumerate(_pico_rows(), start=1):
@@ -653,13 +697,13 @@ def _build_pico_reveal_slide(prs, deck, reveal_count: int):
 def build_pico_slide(prs, deck):
     """Build the PICO slide as an interactive progressive reveal.
 
-    This intentionally creates four nearly identical slides rather than relying
+    This intentionally creates five nearly identical slides rather than relying
     on PowerPoint animation XML. It is more reliable across PowerPoint, browser
-    preview, and exported files, while still letting residents click through
-    P → I → C → O during journal club.
+    preview, and exported files, while still letting residents guess first and
+    then click through P → I → C → O during journal club.
     """
     last_slide = None
-    for reveal_count in range(1, 5):
+    for reveal_count in range(0, 5):
         last_slide = _build_pico_reveal_slide(prs, deck, reveal_count)
     return last_slide
 
