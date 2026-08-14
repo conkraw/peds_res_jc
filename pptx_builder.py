@@ -557,22 +557,111 @@ def build_patient_problem_slide(prs, deck):
     add_footer(slide)
     return slide
 
-def build_pico_slide(prs, deck):
+def _pico_rows() -> List[tuple[str, str, str]]:
+    """Rows used for the progressive PICO reveal slide sequence."""
+    return [
+        ("P", "Patient/Problem", "patient"),
+        ("I", "Intervention", "intervention"),
+        ("C", "Comparison", "comparison"),
+        ("O", "Outcome", "outcome"),
+    ]
+
+
+def _add_pico_progress_dots(slide, reveal_count: int) -> None:
+    """Small P-I-C-O progress cue in the upper-right corner."""
+    rows = _pico_rows()
+    start_x = 10.42
+    y = 0.92
+    box = 0.32
+    gap = 0.09
+    for idx, (letter, _label, _key) in enumerate(rows, start=1):
+        fill = COLOR_ACCENT if idx <= reveal_count else COLOR_ACCENT_LIGHT
+        text_color = COLOR_WHITE if idx <= reveal_count else COLOR_ACCENT
+        shape = slide.shapes.add_shape(
+            MSO_AUTO_SHAPE_TYPE.OVAL,
+            Inches(start_x + (idx - 1) * (box + gap)),
+            Inches(y),
+            Inches(box),
+            Inches(box),
+        )
+        shape.fill.solid()
+        shape.fill.fore_color.rgb = fill
+        shape.line.color.rgb = fill
+        tf = shape.text_frame
+        tf.clear()
+        tf.vertical_anchor = MSO_ANCHOR.MIDDLE
+        tf.margin_left = Inches(0.02)
+        tf.margin_right = Inches(0.02)
+        tf.margin_top = Inches(0.00)
+        tf.margin_bottom = Inches(0.00)
+        p = tf.paragraphs[0]
+        p.alignment = PP_ALIGN.CENTER
+        r = p.add_run()
+        r.text = letter
+        r.font.bold = True
+        r.font.size = Pt(11)
+        r.font.color.rgb = text_color
+
+
+def _build_pico_reveal_slide(prs, deck, reveal_count: int):
+    """Build one step of the PICO slide.
+
+    PowerPoint animations are fragile when generated from python-pptx. Instead,
+    this creates a short progressive-reveal sequence: first P, then P+I, then
+    P+I+C, then the full PICO slide. In slideshow mode, the learner simply
+    clicks Next and each element appears in order.
+    """
     data = deck["pico"]
     slide = prs.slides.add_slide(prs.slide_layouts[6])
     add_title(slide, "The Study Question", "PICO")
-    labels = [("Patient/Problem", "patient"), ("Intervention", "intervention"), ("Comparison", "comparison"), ("Outcome", "outcome")]
+    _add_pico_progress_dots(slide, reveal_count)
+
     y = 1.35
-    for label, key in labels:
-        add_section_label(slide, 0.75, y, 2.2, label)
-        add_textbox(slide, 3.1, y - 0.02, 9.55, 0.55, data.get(key), font_size=15)
+    for idx, (letter, label, key) in enumerate(_pico_rows(), start=1):
+        if idx <= reveal_count:
+            add_section_label(slide, 0.75, y, 2.5, f"{letter}: {label}")
+            add_textbox(slide, 3.42, y - 0.02, 9.20, 0.55, data.get(key), font_size=15)
         y += 0.85
-    add_small_label(slide, 0.85, 4.72, 11.6, "Plain-Language Study Question")
-    add_textbox(slide, 0.85, 4.95, 11.6, 0.75, data.get("plain_question"), font_size=20, bold=True, fill=COLOR_LIGHT_GRAY, align=PP_ALIGN.CENTER)
-    add_inline_label(slide, 0.85, 5.86, 4.0, "Discussion Question")
-    add_textbox(slide, 0.85, 6.10, 11.6, 0.45, data.get("discussion_question"), font_size=18, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
+
+    # Keep the plain-language question and discussion prompt on the final
+    # reveal only, after learners have worked through P, I, C, and O.
+    if reveal_count >= 4:
+        add_small_label(slide, 0.85, 4.72, 11.6, "Plain-Language Study Question")
+        add_textbox(slide, 0.85, 4.95, 11.6, 0.75, data.get("plain_question"), font_size=20, bold=True, fill=COLOR_LIGHT_GRAY, align=PP_ALIGN.CENTER)
+        add_inline_label(slide, 0.85, 5.86, 4.0, "Discussion Question")
+        add_textbox(slide, 0.85, 6.10, 11.6, 0.45, data.get("discussion_question"), font_size=18, bold=True, color=COLOR_ACCENT, align=PP_ALIGN.CENTER)
+    else:
+        next_letter, next_label, _next_key = _pico_rows()[reveal_count]
+        add_textbox(
+            slide,
+            0.85,
+            5.38,
+            11.6,
+            0.55,
+            f"Next: identify {next_letter} — {next_label}.",
+            font_size=18,
+            bold=True,
+            color=COLOR_ACCENT,
+            align=PP_ALIGN.CENTER,
+            fill=COLOR_ACCENT_LIGHT,
+        )
+
     add_footer(slide)
     return slide
+
+
+def build_pico_slide(prs, deck):
+    """Build the PICO slide as an interactive progressive reveal.
+
+    This intentionally creates four nearly identical slides rather than relying
+    on PowerPoint animation XML. It is more reliable across PowerPoint, browser
+    preview, and exported files, while still letting residents click through
+    P → I → C → O during journal club.
+    """
+    last_slide = None
+    for reveal_count in range(1, 5):
+        last_slide = _build_pico_reveal_slide(prs, deck, reveal_count)
+    return last_slide
 
 def build_study_design_slide(prs, deck):
     data = deck["study_design"]
